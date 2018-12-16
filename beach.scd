@@ -1,9 +1,9 @@
 /*
- *               _
- *   _ __   __ _| |_ _   _ _ __ ___
- *  | '_ \ / _` | __| | | | '__/ _ \
- *  | | | | (_| | |_| |_| | | |  __/
- *  |_| |_|\__,_|\__|\__,_|_|  \___|
+ *   _                     _
+ *  | |__   ___  __ _  ___| |__
+ *  | '_ \ / _ \/ _` |/ __| '_ \
+ *  | |_) |  __/ (_| | (__| | | |
+ *  |_.__/ \___|\__,_|\___|_| |_|
  *
  *
  *  #+METHOD: Simulation as in `SimCity for Nature`
@@ -22,18 +22,18 @@ s.boot;
 (
 SynthDef(\bubbleGenerator, {
 
-	arg out=0, t_trig=0, attack=0.01, decay=0.08, pitchcurvelen=0.1, freq=400, doneAction=0, amp=0.1;
-	var pitch, sig, env;
+	arg out=0, t_trig=0, attack=0.01, decay=0.08, freq=400, amp=0.1, pitchcurvelen=0.1, doneAction=0;
+	var env, pitch, sig;
 
 	env = amp * EnvGen.ar(Env.perc(attack, decay).delay(0.003), t_trig, doneAction: doneAction);
 	pitch = freq * EnvGen.ar(Env.new([0,0,1],[0,1]).exprange(1, 2.718), t_trig, timeScale: pitchcurvelen);
 	sig = SinOsc.ar(pitch);
 
 	// Apply low-pass filter and reverb
-	sig = LPF.ar(sig, 500) * env * 10;
+	sig = LPF.ar(sig, 500) * env * 2;
 	f = JPverb.ar(sig, 5, 0, 1, 0, 0);
 
-	sig = Pan2.ar((sig + (f * 0.5)), FSinOsc.kr(2), 0.3);
+	sig = Pan2.ar((sig + (f * 0.5)), 1);
 	Out.ar(out, sig);
 }).add
 )
@@ -42,8 +42,8 @@ SynthDef(\bubbleGenerator, {
 (
 SynthDef.new(\gullGenerator, {
 
-	arg out = 0, t_trig = 0, freq=800, amp = 1, attack=0.5, decay=2, doneAction = 2;
-	var sig, env, env_effect, lfo, temp, vibrato;
+	arg out = 0, t_trig = 0, freq=900, amp = 1, attack = 0.5, decay = 2, dur = 0.5, doneAction = 2;
+	var env, env_effect, lfo, sig, temp, vibrato;
 
 
 	lfo = XLine.ar(3, 30);
@@ -53,7 +53,7 @@ SynthDef.new(\gullGenerator, {
 	env_effect = EnvGen.ar(Env.perc((attack * 2), (decay * 2)), t_trig, doneAction: doneAction) * amp;
 
 	// Resonant Filter
-	sig = Formant.ar(XLine.kr(freq, 600, 0.5), XLine.kr(2000, 1400, 0.5), XLine.kr(1000, 700, 0.5), mul: 0.6)!2 + Formant.ar(XLine.kr(330, 150, 0.5), 805, 880, mul: 0.25)!2 + Saw.ar(XLine.ar(330, 300, 0.5), mul: XLine.kr(0.2, 0, 0.5));
+	sig = Formant.ar(XLine.kr(freq, 600, 0.5), XLine.kr(3000, 1400, 0.5), XLine.kr(freq * 2, 700, 0.5), mul: 0.6)!2 + Formant.ar(XLine.kr(freq / 2, 150, 0.5), 805, 880, mul: 0.25)!2 + Saw.ar(XLine.ar(freq / 2, 300, 0.5), mul: XLine.kr(0.2, 0, 0.2));
 
 	// Apply LFO and Envelope
 	sig = 0.5 * env * sig;
@@ -63,6 +63,7 @@ SynthDef.new(\gullGenerator, {
 	f = FreeVerb.ar(sig, 0.33, 0.8, 0.3, 0.25);
 
 	sig = sig + (0.25 * f * env) + (0.25 * e * env);
+	sig = Pan2.ar(sig, 1);
 
 	Out.ar(out, sig);
 }).add;
@@ -72,18 +73,18 @@ SynthDef.new(\gullGenerator, {
 (
 SynthDef.new(\waveGenerator,{
 
-	arg out = 0, t_trig=0, attack = 3, decay = 2;
+	arg out = 0, t_trig = 0, attack = 3, decay = 2, amp = 0.5, freqfactor = 0.75;
 	var sig, env;
 
 	env = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: 2);
 
 	// Mix Pink and Brown Noise for Wave Signal
-	sig = PinkNoise.ar(1)!2 * 0.75 + BrownNoise.ar(EnvGen.kr(Env.new([0.2, 1, 0], [attack, decay], [1, -1]), doneAction: 2)) * 0.25;
+	sig = (PinkNoise.ar(1)!2 * freqfactor) + (BrownNoise.ar(EnvGen.kr(Env.new([0.2, 1, 0], [attack, decay], [1, -1]), doneAction: 2))!2 * (1 - freqfactor));
 
-	f = JPverb.ar(sig, 5, 0, 1, 0, 0);
+	f = JPverb.ar(sig, 1, 0, 1, 0, 0);
 
 	// Apply Envelope
-	sig = 0.5 * sig * env + (f * 0.2);
+	sig = amp * sig * env + (f * 0.2);
 
 	sig = sig * 0.1;
 	Out.ar(out, sig);
@@ -102,10 +103,11 @@ w_synth = Synth(\waveGenerator);
 b = Pbind(
 	\instrument, \bubbleGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\dur, Pgauss(0.3, 0.2),
-	\freq,  Pkey(\sizefactor).linexp(0, 1, 1000, 3000),
-	\amp ,  Pkey(\sizefactor).linlin(0, 1, 0.15, 0.04),
+	\dur, Pgauss(0.5, 0.3),
+	\freq, Pkey(\sizefactor).linexp(0, 1, 200, 600),
+	\amp , Pkey(\sizefactor).linlin(0, 1, 0.10, 0.04),
 	\decay, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.08),
+	\pitchcurvelen, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.2),
 	\doneAction, 2
 ).play;
 
@@ -113,10 +115,11 @@ b = Pbind(
 g = Pbind(
 	\instrument, \gullGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\dur, Pgauss(5, 10),
-	\freq,  Pkey(\sizefactor).linexp(0, 1, 600, 800),
-	\amp ,  Pkey(\sizefactor).linexp(0, 1, 0.05, 0.2),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 0.5, 1),
+	\dur, Pgauss(1, 2),
+	\freq, Pkey(\sizefactor).linexp(0, 1, 600, 800),
+	\amp , Pkey(\sizefactor).linexp(0, 1, 0.05, 0.2),
+	\attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.5),
+	\decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.7),
 	\doneAction, 2
 ).play;
 
@@ -124,13 +127,15 @@ g = Pbind(
 w = Pbind(
 	\instrument, \waveGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\dur, Pgauss(1, 3),
-	\freq,  Pkey(\sizefactor).linexp(0, 1, 1000, 3000),
-	\amp ,  Pkey(\sizefactor).linlin(0, 1, 0.15, 0.04),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 1, 4),
+	\dur, Pgauss(2, 5),
+	\amp , Pkey(\sizefactor).linlin(0, 1, 0.1, 0.5),
+	\decay, Pkey(\sizefactor).linlin(0, 1, 2, 5),
+	\freqfactor, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.9),
 	\doneAction, 2
 ).play;
 )
+
+s.meter;
 
 // Stop everything
 (
