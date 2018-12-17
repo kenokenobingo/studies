@@ -13,12 +13,12 @@
  *
  */
 
-// Increase the server’s a,llocated memory
+// Increase the server’s allocated memory
 s.options.memSize = 1000000;
-// Boot the SuperCollider Server
+// Boot the SuperCollider server
 s.boot;
 
-// Define Bubble Synth
+// Define bubble synth
 (
 SynthDef(\bubbleGenerator, {
 
@@ -38,7 +38,7 @@ SynthDef(\bubbleGenerator, {
 }).add
 )
 
-// Define Sea Gull Synth
+// Define sea gull synth
 (
 SynthDef.new(\gullGenerator, {
 
@@ -52,13 +52,13 @@ SynthDef.new(\gullGenerator, {
 	env = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: 0) * amp;
 	env_effect = EnvGen.ar(Env.perc((attack * 2), (decay * 2)), t_trig, doneAction: doneAction) * amp;
 
-	// Resonant Filter
+	// Resonant filter
 	sig = Formant.ar(XLine.kr(freq, 600, 0.5), XLine.kr(3000, 1400, 0.5), XLine.kr(freq * 2, 700, 0.5), mul: 0.6)!2 + Formant.ar(XLine.kr(freq / 2, 150, 0.5), 805, 880, mul: 0.25)!2 + Saw.ar(XLine.ar(freq / 2, 300, 0.5), mul: XLine.kr(0.2, 0, 0.2));
 
-	// Apply LFO and Envelope
+	// Apply LFO and envelope
 	sig = 0.5 * env * sig;
 
-	// Echo + Reverb
+	// Echo + reverb
 	e = Greyhole.ar(sig, 5, 0.1, 0.2, feedback: 0.8, modDepth: 1, modFreq: 10);
 	f = FreeVerb.ar(sig, 0.33, 0.8, 0.3, 0.25);
 
@@ -69,7 +69,7 @@ SynthDef.new(\gullGenerator, {
 }).add;
 )
 
-// Define Wave Synth
+// Define wave synth
 (
 SynthDef.new(\waveGenerator,{
 
@@ -78,12 +78,12 @@ SynthDef.new(\waveGenerator,{
 
 	env = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: 2);
 
-	// Mix Pink and Brown Noise for Wave Signal
-	sig = (PinkNoise.ar(1)!2 * freqfactor) + (BrownNoise.ar(EnvGen.kr(Env.new([0.2, 1, 0], [attack, decay], [1, -1]), doneAction: 2))!2 * (1 - freqfactor));
+	// Mix pink and brown noise for wave signal
+	sig = (PinkNoise.ar(1)!2 * freqfactor) + (BrownNoise.ar(EnvGen.kr(Env.new([0.2, 1, 0], [attack, decay], [1, -1])))!2 * (1 - freqfactor));
 
-	f = JPverb.ar(sig, 1, 0, 1, 0, 0);
+	f = FreeVerb.ar(sig, 1, 0.4, 0.6);
 
-	// Apply Envelope
+	// apply envelope
 	sig = amp * sig * env + (f * 0.2);
 
 	sig = sig * 0.1;
@@ -104,7 +104,7 @@ b = Pbind(
 	\instrument, \bubbleGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur, Pgauss(0.5, 0.3),
-	\freq, Pkey(\sizefactor).linexp(0, 1, 200, 600),
+	\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
 	\amp , Pkey(\sizefactor).linlin(0, 1, 0.10, 0.04),
 	\decay, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.08),
 	\pitchcurvelen, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.2),
