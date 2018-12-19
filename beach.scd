@@ -13,28 +13,41 @@
  *
  */
 
+
 // Increase the server’s allocated memory
 s.options.memSize = 1000000;
+// Increase the number of the server’s input and output busses
+s.options.numInputBusChannels = 8;
+s.options.numOutputBusChannels = 8;
 // Boot the SuperCollider server
 s.boot;
+
+
+/************************************************************
+ *   _           _                                   _
+ *  (_)_ __  ___| |_ _ __ _   _ _ __ ___   ___ _ __ | |_ ___
+ *  | | '_ \/ __| __| '__| | | | '_ ` _ \ / _ \ '_ \| __/ __|
+ *  | | | | \__ \ |_| |  | |_| | | | | | |  __/ | | | |_\__ \
+ *  |_|_| |_|___/\__|_|   \__,_|_| |_| |_|\___|_| |_|\__|___/
+ *
+ ************************************************************/
 
 // Define bubble synth
 (
 SynthDef(\bubbleGenerator, {
 
-	arg out=0, t_trig=0, attack=0.01, decay=0.08, freq=400, amp=0.1, pitchcurvelen=0.1, doneAction=0;
+	arg out=0, t_trig=0, attack=0.01, decay=0.08, freq=400, amp=0.1, pitchcurvelen=0.1, doneAction=2;
 	var env, pitch, sig;
 
 	env = amp * EnvGen.ar(Env.perc(attack, decay).delay(0.003), t_trig, doneAction: doneAction);
 	pitch = freq * EnvGen.ar(Env.new([0,0,1],[0,1]).exprange(1, 2.718), t_trig, timeScale: pitchcurvelen);
 	sig = SinOsc.ar(pitch);
 
-	// Apply low-pass filter and reverb
-	sig = LPF.ar(sig, 500) * env * 2;
-	f = JPverb.ar(sig, 5, 0, 1, 0, 0);
+	// Apply low-pass filter to the signal
+	sig = LPF.ar(sig, 500) * env * 0.35;
 
-	sig = Pan2.ar((sig + (f * 0.5)), 1);
 	Out.ar(out, sig);
+
 }).add
 )
 
@@ -42,30 +55,22 @@ SynthDef(\bubbleGenerator, {
 (
 SynthDef.new(\gullGenerator, {
 
-	arg out = 0, t_trig = 0, freq=900, amp = 1, attack = 0.5, decay = 2, dur = 0.5, doneAction = 2;
+	arg out = 3, t_trig = 0, freq=900, amp = 1, attack = 0.5, decay = 2, dur = 0.5, doneAction = 2;
 	var env, env_effect, lfo, sig, temp, vibrato;
-
 
 	lfo = XLine.ar(3, 30);
 
 	vibrato = Vibrato.ar(100, 6, 0.8);
-	env = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: 0) * amp;
-	env_effect = EnvGen.ar(Env.perc((attack * 2), (decay * 2)), t_trig, doneAction: doneAction) * amp;
+	env = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: doneAction) * amp;
 
 	// Resonant filter
 	sig = Formant.ar(XLine.kr(freq, 600, 0.5), XLine.kr(3000, 1400, 0.5), XLine.kr(freq * 2, 700, 0.5), mul: 0.6)!2 + Formant.ar(XLine.kr(freq / 2, 150, 0.5), 805, 880, mul: 0.25)!2 + Saw.ar(XLine.ar(freq / 2, 300, 0.5), mul: XLine.kr(0.2, 0, 0.2));
 
 	// Apply LFO and envelope
-	sig = 0.5 * env * sig;
-
-	// Echo + reverb
-	e = Greyhole.ar(sig, 5, 0.1, 0.2, feedback: 0.8, modDepth: 1, modFreq: 10);
-	f = FreeVerb.ar(sig, 0.33, 0.8, 0.3, 0.25);
-
-	sig = sig + (0.25 * f * env) + (0.25 * e * env);
-	sig = Pan2.ar(sig, 1);
+	sig = 0.1 * env * sig;
 
 	Out.ar(out, sig);
+
 }).add;
 )
 
@@ -73,73 +78,136 @@ SynthDef.new(\gullGenerator, {
 (
 SynthDef.new(\waveGenerator,{
 
-	arg out = 0, t_trig = 0, attack = 3, decay = 2, amp = 0.5, freqfactor = 0.75;
+	arg out = 0, t_trig = 0, attack = 3, decay = 2, amp = 0.5, freqfactor = 0.75, doneAction = 2;
 	var sig, env;
 
-	env = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: 2);
+	env = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: doneAction);
 
 	// Mix pink and brown noise for wave signal
 	sig = (PinkNoise.ar(1)!2 * freqfactor) + (BrownNoise.ar(EnvGen.kr(Env.new([0.2, 1, 0], [attack, decay], [1, -1])))!2 * (1 - freqfactor));
 
-	f = FreeVerb.ar(sig, 1, 0.4, 0.6);
-
 	// apply envelope
-	sig = amp * sig * env + (f * 0.2);
+	sig = amp * sig * env;
 
-	sig = sig * 0.1;
+	sig = sig * 0.3;
 	Out.ar(out, sig);
+
 }).add;
 )
 
-// Scene
+
+/**********************************
+ *        __  __           _
+ *   ___ / _|/ _| ___  ___| |_ ___
+ *  / _ \ |_| |_ / _ \/ __| __/ __|
+ * |  __/  _|  _|  __/ (__| |_\__ \
+ *  \___|_| |_|  \___|\___|\__|___/
+ *
+ **********************************/
+
 (
-var w_synth, b_synth, g_synth;
+SynthDef(\echoGenerator, {
 
-b_synth = Synth(\bubbleGenerator);
-g_synth = Synth(\gullGenerator);
-w_synth = Synth(\waveGenerator);
+	arg in = 2, out = 0;
+	var effect, sig;
 
-// Play the bubbles
-b = Pbind(
-	\instrument, \bubbleGenerator,
-	\sizefactor, Pwhite(0.0,1,inf),
-	\dur, Pgauss(0.5, 0.3),
-	\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
-	\amp , Pkey(\sizefactor).linlin(0, 1, 0.10, 0.04),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.08),
-	\pitchcurvelen, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.2),
-	\doneAction, 2
-).play;
+	sig = In.ar(in);
+	effect = Greyhole.ar(sig, 2, 0.1, 0.2, 0.8, feedback: 0.3);
 
-// Play the sea gulls
-g = Pbind(
-	\instrument, \gullGenerator,
-	\sizefactor, Pwhite(0.0,1,inf),
-	\dur, Pgauss(1, 2),
-	\freq, Pkey(\sizefactor).linexp(0, 1, 600, 800),
-	\amp , Pkey(\sizefactor).linexp(0, 1, 0.05, 0.2),
-	\attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.5),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.7),
-	\doneAction, 2
-).play;
+	Out.ar(out, effect);
 
-// Play the waves
-w = Pbind(
-	\instrument, \waveGenerator,
-	\sizefactor, Pwhite(0.0,1,inf),
-	\dur, Pgauss(2, 5),
-	\amp , Pkey(\sizefactor).linlin(0, 1, 0.1, 0.5),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 2, 5),
-	\freqfactor, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.9),
-	\doneAction, 2
-).play;
+}).add;
 )
 
-s.meter;
-
-// Stop everything
 (
-b.stop;
-g.stop;
-w.stop;
+SynthDef(\reverbGenerator, {
+
+	arg in = 4, out = 2;
+	var effect, sig;
+
+	sig = In.ar(in);
+	effect = FreeVerb.ar(sig, 0.33, 0.8, 0.3, 0.25);
+
+	Out.ar(out, effect);
+
+}).add;
+)
+
+(
+SynthDef(\complexReverbGenerator, {
+
+	arg in = 6, out = 0, ratio = 0.75;
+	var effect, sig;
+
+	sig = In.ar(in);
+	effect = JPverb.ar(sig, 5, 0, 1, 0, 0);
+	effect = (sig * ratio) + (effect * (1 - ratio));
+	effect = effect * 0.5;
+
+	Out.ar(out, effect);
+}).add;
+)
+
+
+/****************************
+ *   ___  ___ ___ _ __   ___
+ *  / __|/ __/ _ \ '_ \ / _ \
+ *  \__ \ (_|  __/ | | |  __/
+ *  |___/\___\___|_| |_|\___|
+ *
+ ****************************/
+
+(
+var c_fx, e_fx, r_fx;
+
+c_fx = Synth.new(\complexReverbGenerator, [\input, 6]);
+e_fx = Synth.new(\echoGenerator, [\input, 4]);
+r_fx = Synth.new(\reverbGenerator, [\input, 2]);
+
+// Play the bubbles
+Pdef(
+	\b,
+	Pbind(
+		\instrument, \bubbleGenerator,
+		\sizefactor, Pwhite(0.0,1,inf),
+		\dur, Pgauss(0.5, 0.3),
+		\out, 6,
+		\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
+		\amp , Pkey(\sizefactor).linlin(0, 1, 0.10, 0.04),
+		\decay, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.08),
+		\pitchcurvelen, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.2),
+		\doneAction, 2
+	).play(quant: 0.5);
+);
+
+// Play the sea gulls
+Pdef(
+	\g,
+	Pbind(
+		\instrument, \gullGenerator,
+		\sizefactor, Pwhite(0.0,1,inf),
+		\out, 4,
+		\dur, Pgauss(1, 2),
+		\freq, Pkey(\sizefactor).linexp(0, 1, 600, 800),
+		\amp , Pkey(\sizefactor).linexp(0, 1, 0.05, 0.2),
+		\attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.5),
+		\decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.7),
+		\doneAction, 2
+	).play;
+);
+
+// Play the waves
+Pdef(
+	\w,
+	Pbind(
+		\instrument, \waveGenerator,
+		\sizefactor, Pwhite(0.0,1,inf),
+		\out, 4,
+		\dur, Pgauss(2, 5),
+		\amp , Pkey(\sizefactor).linlin(0, 1, 0.1, 0.5),
+		\decay, Pkey(\sizefactor).linlin(0, 1, 2, 5),
+		\freqfactor, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.9),
+		\doneAction, 2
+	).play(quant: 0.5);
+);
 )
