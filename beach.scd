@@ -14,15 +14,6 @@
  */
 
 
-// Increase the server’s allocated memory
-s.options.memSize = 1000000;
-// Increase the number of the server’s input and output busses
-s.options.numInputBusChannels = 8;
-s.options.numOutputBusChannels = 8;
-// Boot the SuperCollider server
-s.boot;
-
-
 /************************************************************
  *   _           _                                   _
  *  (_)_ __  ___| |_ _ __ _   _ _ __ ___   ___ _ __ | |_ ___
@@ -158,7 +149,7 @@ SynthDef(\complexReverbGenerator, {
  ****************************/
 
 (
-var c_fx, e_fx, r_fx;
+var c_fx, e_fx, r_fx, amp_w, amp_g;
 
 c_fx = Synth.new(\complexReverbGenerator, [\input, 6]);
 e_fx = Synth.new(\echoGenerator, [\input, 4]);
@@ -174,11 +165,12 @@ Pdef(
 		\out, 6,
 		\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
 		\amp , Pkey(\sizefactor).linlin(0, 1, 0.10, 0.04),
+		//\amp, amp_g,
 		\decay, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.08),
 		\pitchcurvelen, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.2),
 		\doneAction, 2
-	).play(quant: 0.5);
-);
+	);
+).play;
 
 // Play the sea gulls
 Pdef(
@@ -189,7 +181,8 @@ Pdef(
 		\out, 4,
 		\dur, Pgauss(1, 2),
 		\freq, Pkey(\sizefactor).linexp(0, 1, 600, 800),
-		\amp , Pkey(\sizefactor).linexp(0, 1, 0.05, 0.2),
+		\amp, Pfunc { ~amplitude },
+		//\amp , Pkey(\sizefactor).linexp(0, 1, 0.05, 0.2),
 		\attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.5),
 		\decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.7),
 		\doneAction, 2
@@ -204,10 +197,10 @@ Pdef(
 		\sizefactor, Pwhite(0.0,1,inf),
 		\out, 4,
 		\dur, Pgauss(2, 5),
-		\amp , Pkey(\sizefactor).linlin(0, 1, 0.1, 0.5),
+		//\amp , Pkey(\sizefactor).linlin(0, 1, 0.1, 0.5),
 		\decay, Pkey(\sizefactor).linlin(0, 1, 2, 5),
 		\freqfactor, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.9),
 		\doneAction, 2
-	).play(quant: 0.5);
-);
+	);
+).play;
 )
