@@ -99,11 +99,11 @@ SynthDef.new(\waveGenerator,{
 (
 SynthDef(\echoGenerator, {
 
-	arg in = 2, out = 0;
+	arg in = 2, out = 0, delay_time = 2;
 	var effect, sig;
 
 	sig = In.ar(in);
-	effect = Greyhole.ar(sig, 2, 0.1, 0.2, 0.8, feedback: 0.3);
+	effect = Greyhole.ar(sig, delay_time, 0.1, 0.2, 0.8, feedback: 0.3);
 
 	Out.ar(out, effect);
 
@@ -149,58 +149,94 @@ SynthDef(\complexReverbGenerator, {
  ****************************/
 
 (
-var c_fx, e_fx, r_fx, amp_w, amp_g;
+var c_fx, e_fx, r_fx,
+    amp_b = 1, amp_g = 1, amp_w = 1,
+    dur_b = 0.5, dur_g = 1.5, dur_w = 3;
 
-c_fx = Synth.new(\complexReverbGenerator, [\input, 6]);
+c_fx = Synth.new(\complexReverbGenerator, [\input, 6,]);
 e_fx = Synth.new(\echoGenerator, [\input, 4]);
 r_fx = Synth.new(\reverbGenerator, [\input, 2]);
 
 // Play the bubbles
-Pdef(
-	\b,
-	Pbind(
-		\instrument, \bubbleGenerator,
-		\sizefactor, Pwhite(0.0,1,inf),
-		\dur, Pgauss(0.5, 0.3),
-		\out, 6,
-		\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
-		\amp , Pkey(\sizefactor).linlin(0, 1, 0.10, 0.04),
-		//\amp, amp_g,
-		\decay, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.08),
-		\pitchcurvelen, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.2),
-		\doneAction, 2
-	);
-).play;
+b = Pbind(*[
+	\instrument, \bubbleGenerator,
+	\sizefactor, Pwhite(0.0,1,inf),
+	\dur , Pgauss(Pfuncn({ dur_b }, inf), Pfuncn({ dur_b }, inf) - 0.2),
+	\out, 6,
+	\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
+	\amp , Pkey(\sizefactor).linlin(0, 1, 0.10, 0.04),
+	\amp, Pfuncn({ amp_b }, inf),
+	\decay, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.08),
+	\pitchcurvelen, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.2),
+	\doneAction, 2
+]).play;
 
 // Play the sea gulls
-Pdef(
-	\g,
-	Pbind(
-		\instrument, \gullGenerator,
-		\sizefactor, Pwhite(0.0,1,inf),
-		\out, 4,
-		\dur, Pgauss(1, 2),
-		\freq, Pkey(\sizefactor).linexp(0, 1, 600, 800),
-		\amp, Pfunc { ~amplitude },
-		//\amp , Pkey(\sizefactor).linexp(0, 1, 0.05, 0.2),
-		\attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.5),
-		\decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.7),
-		\doneAction, 2
-	).play;
-);
+g = Pbind(*[
+	\instrument, \gullGenerator,
+	\sizefactor, Pwhite(0.0,1,inf),
+	\out, 4,
+	\dur , Pgauss(Pfuncn({ dur_g }, inf), Pfuncn({ dur_g }, inf) - 0.1),
+    \freq, Pkey(\sizefactor).linexp(0, 1, 600, 800),
+    \amp, Pfuncn({ amp_g }, inf),
+    \attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.5),
+    \decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.7),
+	\doneAction, 2
+]).play;
 
 // Play the waves
-Pdef(
-	\w,
-	Pbind(
-		\instrument, \waveGenerator,
-		\sizefactor, Pwhite(0.0,1,inf),
-		\out, 4,
-		\dur, Pgauss(2, 5),
-		//\amp , Pkey(\sizefactor).linlin(0, 1, 0.1, 0.5),
-		\decay, Pkey(\sizefactor).linlin(0, 1, 2, 5),
-		\freqfactor, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.9),
-		\doneAction, 2
-	);
-).play;
+w = Pbind(*[
+	\instrument, \waveGenerator,
+	\sizefactor, Pwhite(0.0,1,inf),
+	\out, 4,
+	//\dur, Pgauss(2, 5),
+	\dur, Pgauss(Pfuncn({ dur_w }, inf), Pfuncn({ dur_w }, inf) -1),
+	\amp , Pfuncn({ amp_w }, inf),
+	\decay, Pkey(\sizefactor).linlin(0, 1, 2, 5),
+	\freqfactor, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.9),
+	\doneAction, 2
+]).play;
+
+// Control the volume of the bubbles
+MIDIdef.cc(\amp_b, { |val, num, chan, src|
+	[val, num].postln;
+	amp_b = val.linlin(0, 127, 0, 1);
+	amp_b.postln;
+}, 0);
+
+// Control the volume of the gulls
+MIDIdef.cc(\amp_g, { |val, num, chan, src|
+	[val, num].postln;
+	amp_g = val.linlin(0, 127, 0, 1);
+	amp_g.postln;
+}, 1);
+
+// Control the volume of the waves
+MIDIdef.cc(\amp_w, { |val, num, chan, src|
+	[val, num].postln;
+    amp_w = val.linlin(0, 127, 0, 1);
+	amp_w.postln;
+}, 2);
+
+// Control the duration of the bubbles
+MIDIdef.cc(\dur_b, { |val, num, chan, src|
+	[val, num].postln;
+	dur_b = val.linlin(0, 127, 0.3, 0.5);
+}, 16);
+
+// Control the duration of the gulls
+MIDIdef.cc(\dur_g, { |val, num, chan, src|
+	[val, num].postln;
+	dur_g = val.linlin(0, 127, 0.5, 3);
+}, 17);
+
+// Control the volume of the waves
+MIDIdef.cc(\dur_w, { |val, num, chan, src|
+	[val, num].postln;
+	dur_w = val.linlin(0, 127, 2, 8);
+}, 18);
+)
+
+(
+b.stop; g.stop; w.stop;
 )
