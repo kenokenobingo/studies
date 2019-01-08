@@ -32,7 +32,7 @@ SynthDef(\woodpeckerGenerator, {
 
 	env = amp * EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: doneAction);
 
-    sig = SinOsc.ar(Env([1000, 20, 20], [0.015, 0.1], \exp).ar * [-0.1, 0, 0.1].midiratio);
+    sig = SinOsc.ar(Env([1000, 20, 20], [dur * 0.015, dur * 0.01], \exp).ar * [-0.1, 0, 0.1].midiratio);
     sig = BPeakEQ.ar(sig, XLine.kr(1000, 100, 0.1), 1.0, 10);
     sig = HPF.ar(sig, 800, 0.7);
 	sig = sig * env;
@@ -46,20 +46,42 @@ SynthDef(\woodpeckerGenerator, {
 (
 SynthDef(\owlGenerator, {
 
-	arg t_trig = 0, dur, amp = 1, attack = 0.1, decay = 0.5, freq = 400, out = 0, doneAction = 2;
+	arg t_trig = 0, dur = 1, amp = 1, attack = 0.1, decay = 0.5, freq = 400, out = 0, doneAction = 2;
 	var env, sig;
 
-	env = EnvGen.kr(Env.new([0, 0.8, 1, 0], [0, 0.4, 0.1, 0.1]), doneAction: doneAction);
+	env = EnvGen.kr(Env.new([0, 0.8, 1, 0], [0, dur * 0.4, dur * 0.1, dur * 0.1]), doneAction: doneAction);
 
 	a = LFNoise2.kr(2)**0.33;
 	e = EnvGen.kr(Env.new([0, 0.2, 0], [0, 0.2, 0.4]));
 	sig = SinOsc.ar(320) + Formant.ar(320, 320, 320);
-	sig = BPeakEQ.ar(sig, 320, 1.0, 10);
+	sig = BPeakEQ.ar(sig, 320, 0.1, 2);
 	sig = sig.dup * env * 0.2;
-	sig = sig * 0.05;
+	sig = sig * 0.5;
 	sig = sig * amp;
 
 	Out.ar(out, sig);
+}).add;
+)
+
+// Define rain synth
+(
+SynthDef(\rainGenerator, {
+
+	arg amp = 1, out = 0;
+	var gaus, osc;
+	gaus = {WhiteNoise.ar}.dup(12).sum;
+	gaus = LPF.ar(BPF.ar(gaus, 50, 1/0.4), 500);
+
+	osc = SinOsc.ar(gaus.linlin(-1, 1, 40, 80)) * gaus.squared * 10;
+	osc = (osc - 0.35).max(0);
+
+	2.do {
+		osc = HPF.ar(osc, 500);
+	};
+
+	osc = osc.dup;
+
+	Out.ar(out, osc);
 }).add;
 )
 
@@ -90,7 +112,6 @@ SynthDef(\hallGenerator, {
 }).add;
 )
 
-
 /****************************
  *   ___  ___ ___ _ __   ___
  *  / __|/ __/ _ \ '_ \ / _ \
@@ -100,9 +121,10 @@ SynthDef(\hallGenerator, {
  ****************************/
 
 (
-var h_fx,
-    amp_o = 1, amp_p = 1,
-    dur_o, dur_p;
+var p1, p2, p3,
+    h_fx,
+    amp_o = 1, amp_p = 1, amp_r = 1,
+    dur_o = 1, dur_p = 1, dur_r = 1;
 
 h_fx = Synth.new(\hallGenerator, [\input, 3]);
 
@@ -112,7 +134,7 @@ o = Pbind(*[
 	\sizefactor, Pwhite(0.0,1,inf),
 	\delta, 10,
 	\out, 3,
-	//\dur, Pfuncn({ dur_o }, inf),
+	\dur, Pfuncn({ dur_o }, inf),
 	\amp , Pfuncn({ amp_o }, inf),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 200, 300),
 	\decay, Pkey(\sizefactor).linlin(0, 1, 1, 2),
@@ -120,15 +142,39 @@ o = Pbind(*[
 ]).play;
 
 // Play the woodpecker
-p = Pbind(*[
+p1 = Pbind(*[
 	\instrument, \woodpeckerGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\out, 0,
 	\amp, Pfuncn({ amp_p }, inf),
-	//\dur, Pfuncn({ dur_p }, inf),
+	\dur, Pfuncn({ dur_p }, inf),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 50, 100),
-	\amp , Pkey(\sizefactor).linlin(0, 1, 0.10, 0.04),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 0.01, 0.1)
+	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1)
+]).play(quant: 0.2);
+
+p2 = Pbind(*[
+	\instrument, \woodpeckerGenerator,
+	\sizefactor, Pwhite(0.0,1,inf),
+	\out, 0,
+	\amp, Pfuncn({ amp_p }, inf),
+	\dur, Pfuncn({ dur_p }, inf),
+	\freq, Pkey(\sizefactor).linexp(0, 1, 50, 100),
+	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1)
+]).play(quant: 0.1);
+
+p3 = Pbind(*[
+	\instrument, \woodpeckerGenerator,
+	\sizefactor, Pwhite(0.0,1,inf),
+	\out, 0,
+	\amp, Pfuncn({ amp_p }, inf),
+	\dur, Pfuncn({ dur_p }, inf),
+	\freq, Pkey(\sizefactor).linexp(0, 1, 50, 100),
+	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1)
+]).play(quant: 0.01);
+
+r = Pbind(*[
+	\instrument, \rainGenerator,
+	\amp, Pfuncn({ amp_r }, inf),
 ]).play;
 
 // Control the volume of the owls
@@ -145,22 +191,31 @@ MIDIdef.cc(\amp_p, { |val, num, chan, src|
 	amp_p.postln;
 }, 4);
 
+// Control the volume of the rain
+MIDIdef.cc(\amp_r, { |val, num, chan, src|
+	[val, num].postln;
+	amp_r = val.linlin(0, 127, 0, 1);
+	amp_r.postln;
+}, 5);
+
 // Control the duration of the owls
 MIDIdef.cc(\dur_o, { |val, num, chan, src|
 	[val, num].postln;
-	dur_o = val.linlin(0, 127, 0, 1);
-	dur_o.postln;
+	dur_o = val.linlin(0, 127, 0.5, 1.5);
 }, 19);
 
 // Control the duration of the woodpecker
 MIDIdef.cc(\dur_p, { |val, num, chan, src|
 	[val, num].postln;
-	dur_p = val.linlin(0, 127, 0, 1);
-	dur_p.postln;
+	dur_p = val.linlin(0, 127, 0.25, 1.25);
 }, 20);
 )
 
+// Stop the forest
 (
 o.stop;
-p.stop;
+p1.stop;
+p2.stop;
+p3.stop;
+r.stop;
 )

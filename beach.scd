@@ -237,6 +237,7 @@ MIDIdef.cc(\dur_w, { |val, num, chan, src|
 }, 18);
 )
 
+// Stop the beach
 (
 b.stop; g.stop; w.stop;
 )
