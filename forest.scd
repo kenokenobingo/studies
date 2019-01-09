@@ -67,19 +67,20 @@ SynthDef(\owlGenerator, {
 (
 SynthDef(\rainGenerator, {
 
-	arg amp = 1, out = 0;
+	arg amp = 0.05, out = 0;
 	var gaus, osc;
-	gaus = {WhiteNoise.ar}.dup(12).sum;
-	gaus = LPF.ar(BPF.ar(gaus, 50, 1/0.4), 500);
+	gaus = {PinkNoise.ar}.dup(12).sum;
+	gaus = LPF.ar(BPF.ar(gaus, 100, 1/0.4), 500);
 
 	osc = SinOsc.ar(gaus.linlin(-1, 1, 40, 80)) * gaus.squared * 10;
 	osc = (osc - 0.35).max(0);
 
 	2.do {
-		osc = HPF.ar(osc, 500);
+		osc = HPF.ar(osc, 800);
 	};
 
 	osc = osc.dup;
+	osc = osc * amp;
 
 	Out.ar(out, osc);
 }).add;
@@ -112,6 +113,7 @@ SynthDef(\hallGenerator, {
 }).add;
 )
 
+
 /****************************
  *   ___  ___ ___ _ __   ___
  *  / __|/ __/ _ \ '_ \ / _ \
@@ -142,7 +144,7 @@ o = Pbind(*[
 ]).play;
 
 // Play the woodpecker
-p1 = Pbind(*[
+p = Pbind(*[
 	\instrument, \woodpeckerGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\out, 0,
@@ -152,7 +154,7 @@ p1 = Pbind(*[
 	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1)
 ]).play(quant: 0.2);
 
-p2 = Pbind(*[
+q = Pbind(*[
 	\instrument, \woodpeckerGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\out, 0,
@@ -162,7 +164,7 @@ p2 = Pbind(*[
 	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1)
 ]).play(quant: 0.1);
 
-p3 = Pbind(*[
+s = Pbind(*[
 	\instrument, \woodpeckerGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\out, 0,
@@ -172,10 +174,7 @@ p3 = Pbind(*[
 	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1)
 ]).play(quant: 0.01);
 
-r = Pbind(*[
-	\instrument, \rainGenerator,
-	\amp, Pfuncn({ amp_r }, inf),
-]).play;
+r = Synth.new(\rainGenerator);
 
 // Control the volume of the owls
 MIDIdef.cc(\amp_o, { |val, num, chan, src|
@@ -190,13 +189,6 @@ MIDIdef.cc(\amp_p, { |val, num, chan, src|
 	amp_p = val.linlin(0, 127, 0, 1);
 	amp_p.postln;
 }, 4);
-
-// Control the volume of the rain
-MIDIdef.cc(\amp_r, { |val, num, chan, src|
-	[val, num].postln;
-	amp_r = val.linlin(0, 127, 0, 1);
-	amp_r.postln;
-}, 5);
 
 // Control the duration of the owls
 MIDIdef.cc(\dur_o, { |val, num, chan, src|
@@ -214,8 +206,8 @@ MIDIdef.cc(\dur_p, { |val, num, chan, src|
 // Stop the forest
 (
 o.stop;
-p1.stop;
-p2.stop;
-p3.stop;
-r.stop;
+p.stop;
+q.stop;
+s.stop;
+r.free;
 )
