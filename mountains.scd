@@ -31,7 +31,7 @@ SynthDef(\riverGenerator, {
 	var sig, env;
 
 	//env =
-	sig = SinOsc.ar(0.5) * WhiteNoise.ar();
+	sig = SinOsc.ar(0.1) * WhiteNoise.ar();
 
 	Out.ar(out, sig);
 
@@ -42,12 +42,18 @@ SynthDef(\riverGenerator, {
 (
 SynthDef(\sheepGenerator, {
 
-	arg out = 0, amp = 1, dur = 0.5, doneAction = 2, t_trig = 0;
-	var sig, env;
+	arg out = 0, amp = 1, dur = 4, doneAction = 2, t_trig = 0;
+	var sig = 0, env;
 
 	env = EnvGen.kr(Env.perc(dur/2, dur/2).delay(0.003), t_trig, doneAction: doneAction);
 
-	sig = SinOsc.ar(Vibrato.ar(DC.ar(400.0), 15, 0.2));
+	sig = 5.collect({
+		arg i;
+
+		sig = sig + Formant.ar(i * 125, XLine.ar(125, 200, 0.5), XLine.ar(125, 200, 0.5), mul: XLine.ar(1, 0.1, 0.5)) + Formant.ar(Vibrato.ar(DC.ar(i * 125), 10, 0.02), XLine.ar(700, 1500, 0, 1), 2500, mul: XLine.ar(0.1, 1, 0.5)) * (1/(i+1));
+	});
+
+	sig = BPF.ar(sig, 800, 0.9);
 	sig = sig * env;
 	sig = amp * sig.dup;
 
@@ -63,12 +69,14 @@ SynthDef(\eagleGenerator, {
 	arg out = 0, t_trig = 0, amp = 1, dur = 1, doneAction = 2;
 	var sig = 0, env;
 
-	5.do({
+	5.collect({
 
-		arg item, i;
-		sig = sig + (Formant.ar(EnvGen.kr(Env([item * 500, item * 750, item * 625], [0.5, 0.5, 0.5])))* 0.2);
+		arg i;
+		sig = sig + (Formant.ar(EnvGen.kr(Env([i * 500, i * 750, i * 625], [0.5, 0.5, 0.5])))* 0.2);
 
 	});
+
+	BPF.ar(sig, 800);
 
 	env = EnvGen.kr(Env.perc(dur/2, dur/2).delay(0.003), t_trig, doneAction: doneAction);
 	sig = sig * env * 0.5;
@@ -92,7 +100,7 @@ SynthDef(\eagleGenerator, {
 var amp_e = 1, amp_s = 1,
     dur_e = 1, dur_s = 0.5;
 
-r = Synth.new(\riverGenerator);
+// r = Synth.new(\riverGenerator);
 
 // Play the eagle
 e = Pbind(*[
@@ -102,10 +110,10 @@ e = Pbind(*[
 	\dur , Pgauss(Pfuncn({ dur_e }, inf), Pfuncn({ dur_e }, inf) - 0.1),
     \amp, Pfuncn({ amp_e }, inf),
 	\doneAction, 2
-]).play;
+]).stop;
 
 // Play the sheep
-s = Pbind(*[
+h = Pbind(*[
 	\instrument, \sheepGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pgauss(Pfuncn({ dur_s }, inf), Pfuncn({ dur_s }, inf) - 0.1),
@@ -115,33 +123,38 @@ s = Pbind(*[
 ]).play;
 
 // Control the volume of the eagles
-MIDIdef.cc(\amp_e, { |val, num, chan, src|
+MIDIdef.cc(\amp_e, {
+	|val, num, chan, src|
 	[val, num].postln;
 	amp_e = val.linlin(0, 127, 0, 1);
 	amp_e.postln;
 }, 5);
 
 // Control the duration of the eagles
-MIDIdef.cc(\dur_e, { |val, num, chan, src|
+MIDIdef.cc(\dur_e, {
+	|val, num, chan, src|
 	[val, num].postln;
 	dur_e = val.linlin(0, 127, 0.5, 1.5);
 }, 21);
 
 // Control the volume of the sheep
-MIDIdef.cc(\amp_s, { |val, num, chan, src|
+MIDIdef.cc(\amp_s, {
+	|val, num, chan, src|
 	[val, num].postln;
 	amp_s = val.linlin(0, 127, 0, 1);
 	amp_s.postln;
 }, 6);
 
 // Control the duration of the sheep
-MIDIdef.cc(\dur_s, { |val, num, chan, src|
+MIDIdef.cc(\dur_s, {
+	|val, num, chan, src|
 	[val, num].postln;
-	dur_s = val.linlin(0, 127, 0.5, 0.8);
+	dur_s = val.linlin(0, 127, 1, 2);
 }, 22);
 )
 
 // Stop the mountains
 (
 e.stop;
+h.stop;
 )

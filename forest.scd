@@ -23,16 +23,22 @@
  *
  ************************************************************/
 
+// Define real own buffer
+(
+~realDuck = Buffer.read(Server.default, ".../samples/".resolveRelative ++ "duck.wav");
+~realOwl = Buffer.read(Server.default, ".../samples/".resolveRelative ++ "owl.wav");
+)
+
 // Define woodpecker synth
 (
 SynthDef(\woodpeckerGenerator, {
 
-	arg out = 0, t_trig = 0, dur = 1,  amp = 1, attack = 1, decay = 1, doneAction = 2;
+	arg out = 0, t_trig = 0, dur = 0.25,  amp = 1, attack = 0.1, decay = 0.1, doneAction = 2;
     var env, sig;
 
 	env = amp * EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: doneAction);
 
-    sig = SinOsc.ar(Env([1000, 20, 20], [dur * 0.015, dur * 0.01], \exp).ar * [-0.1, 0, 0.1].midiratio);
+    sig = SinOsc.ar(Env([1000, 20, 20], [dur * 0.015, dur * 0.01], \lin).ar * [-0.1, 0, 0.1].midiratio);
     sig = BPeakEQ.ar(sig, XLine.kr(1000, 100, 0.1), 1.0, 10);
     sig = HPF.ar(sig, 800, 0.7);
 	sig = sig * env;
@@ -53,13 +59,49 @@ SynthDef(\owlGenerator, {
 
 	a = LFNoise2.kr(2)**0.33;
 	e = EnvGen.kr(Env.new([0, 0.2, 0], [0, 0.2, 0.4]));
-	sig = SinOsc.ar(320) + Formant.ar(320, 320, 320);
+	5.collect({
+		|i|
+		sig = Formant.ar(Vibrato.ar(i * 80, 3, 0.015), XLine.ar(320, 100, 0, dur), 320);
+	});
 	sig = BPeakEQ.ar(sig, 320, 0.1, 2);
 	sig = sig.dup * env * 0.2;
 	sig = sig * 0.5;
 	sig = sig * amp;
 
 	Out.ar(out, sig);
+
+}).add;
+)
+
+// Define real owl synth
+(
+SynthDef(\realOwlGenerator, {
+
+	arg amp = 1, out = 0, buf, doneAction = 2;
+	var sig;
+
+	sig= PlayBuf.ar(1, buf, doneAction: doneAction);
+	sig = sig * amp;
+	sig = sig!4;
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+// Define buffer player synth
+(
+SynthDef(\bufPlaySynth, {
+
+	arg amp = 1, out = 0, buf, doneAction = 2;
+	var sig;
+
+	sig= PlayBuf.ar(1, buf, doneAction: doneAction);
+	sig = sig * amp;
+	sig = sig!4;
+
+	Out.ar(out, sig);
+
 }).add;
 )
 
@@ -67,25 +109,81 @@ SynthDef(\owlGenerator, {
 (
 SynthDef(\rainGenerator, {
 
-	arg amp = 0.05, out = 0;
-	var gaus, osc;
+	| amp = 0.5, out = 0 |
+	var gaus, sig;
 	gaus = {PinkNoise.ar}.dup(12).sum;
 	gaus = LPF.ar(BPF.ar(gaus, 100, 1/0.4), 500);
 
-	osc = SinOsc.ar(gaus.linlin(-1, 1, 40, 80)) * gaus.squared * 10;
-	osc = (osc - 0.35).max(0);
+	sig = SinOsc.ar(gaus.linlin(-1, 1, 40, 80)) * gaus.squared * 10;
+	sig = (sig - 0.35).max(0);
 
-	2.do {
-		osc = HPF.ar(osc, 800);
-	};
+	sig = HPF.ar(sig, 800);
 
-	osc = osc.dup;
-	osc = osc * amp;
+	sig = sig.dup;
+	sig = sig * amp;
 
-	Out.ar(out, osc);
+	Out.ar(out, sig);
+
 }).add;
 )
 
+// Define cricket synth
+(
+SynthDef(\cricketSynth, {
+
+	| amp, out = 0 |
+	var trig, seq, demand, sig;
+
+	trig = Impulse.kr(58.82);
+
+	seq = Dseq(Array.fill(41, {|i| if(i<7, {(i+2)/9},{0}) }),inf);
+	demand = Demand.kr(trig,0,seq);
+
+	sig = EnvGen.ar(Env.new([0, 1, 0], [4/44100, 0]), trig) * demand;
+
+
+	sig = OnePole.ar(sig, exp(-2pi * (1000 * SampleDur.ir)));
+	sig = (
+			BPF.ar(sig, 4500 + ((0..2)*50), 300.reciprocal, 100)).sum
+			+ BPF.ar(sig, 9000, 500.reciprocal, 42
+	);
+	sig = ((sig - OnePole.ar(sig, exp(-2pi * (4000 * SampleDur.ir)))) * 0.5)!2;
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+//Define frog synth
+(
+SynthDef(\frogSynth, {
+
+	| amp = 1, out = 0 |
+	var sig, env;
+
+	sig = Impulse.ar(440) * amp;
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+Synth.new(\frogSynth);
+
+
+// Define duck synth
+(
+SynthDef(\duckSynth, {
+
+	| amp, out = 0 |
+	var sig, env;
+
+	sig = SinOsc.ar(440);
+
+	Out.ar(out, sig);
+
+}).add;
+)
 
 /**********************************
  *        __  __           _
@@ -100,13 +198,14 @@ SynthDef(\rainGenerator, {
 (
 SynthDef(\hallGenerator, {
 
-	arg in = 3, out = 0;
+	arg in = 5, out = 0;
 	var effect, sig;
 
 	sig = In.ar(in);
 	sig = sig;
 	effect = FreeVerb.ar(sig, 0.3, 0.5, 0.8);
 	effect = Greyhole.ar(effect, 2, 0.2, diff: 0.8, feedback: 0.4);
+	effect = effect!4;
 
 	Out.ar(out, effect);
 
@@ -128,16 +227,16 @@ var p1, p2, p3,
     amp_o = 1, amp_p = 1, amp_r = 1,
     dur_o = 1, dur_p = 1, dur_r = 1;
 
-h_fx = Synth.new(\hallGenerator, [\input, 3]);
+h_fx = Synth.new(\hallGenerator, [\input, 5]);
 
 // Play the owl
 o = Pbind(*[
 	\instrument, \owlGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\delta, 10,
-	\out, 3,
-	\dur, Pfuncn({ dur_o }, inf),
+	\out, 5,
 	\amp , Pfuncn({ amp_o }, inf),
+	\dur, Pfuncn({ dur_o }, inf),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 200, 300),
 	\decay, Pkey(\sizefactor).linlin(0, 1, 1, 2),
 	\doneAction, 2
@@ -149,32 +248,28 @@ p = Pbind(*[
 	\sizefactor, Pwhite(0.0,1,inf),
 	\out, 0,
 	\amp, Pfuncn({ amp_p }, inf),
-	\dur, Pfuncn({ dur_p }, inf),
+	\dur, Pgauss(0.05, 0.05, inf),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 50, 100),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1)
-]).play(quant: 0.2);
+	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1),
+	\doneAction, 2,
+]).play;
 
-q = Pbind(*[
-	\instrument, \woodpeckerGenerator,
-	\sizefactor, Pwhite(0.0,1,inf),
-	\out, 0,
-	\amp, Pfuncn({ amp_p }, inf),
-	\dur, Pfuncn({ dur_p }, inf),
-	\freq, Pkey(\sizefactor).linexp(0, 1, 50, 100),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1)
-]).play(quant: 0.1);
-
-s = Pbind(*[
-	\instrument, \woodpeckerGenerator,
-	\sizefactor, Pwhite(0.0,1,inf),
-	\out, 0,
-	\amp, Pfuncn({ amp_p }, inf),
-	\dur, Pfuncn({ dur_p }, inf),
-	\freq, Pkey(\sizefactor).linexp(0, 1, 50, 100),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1)
-]).play(quant: 0.01);
-
+// Play the river
 r = Synth.new(\rainGenerator);
+
+// Trigger real owl by playing MIDI note
+MIDIdef.noteOn(\triggerRealOwl, {
+	arg vel, nn, chan, src;
+	[vel, nn, chan, src].postln;
+	Synth.new(\bufPlaySynth, [\buf, ~realOwl.bufnum]);
+});
+
+// Triger real duck by playing MIDI note
+MIDIdef.noteOn(\triggerRealDuck, {
+	arg vel, nn, chan, src;
+	[vel, nn, chan, src].postln;
+	Synth.new(\bufPlaySynth, [\buf, ~realDuck.bufnum]);
+});
 
 // Control the volume of the owls
 MIDIdef.cc(\amp_o, { |val, num, chan, src|
@@ -207,7 +302,4 @@ MIDIdef.cc(\dur_p, { |val, num, chan, src|
 (
 o.stop;
 p.stop;
-q.stop;
-s.stop;
-r.free;
 )

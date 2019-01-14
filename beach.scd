@@ -46,7 +46,7 @@ SynthDef(\bubbleGenerator, {
 (
 SynthDef.new(\gullGenerator, {
 
-	arg out = 3, t_trig = 0, freq=900, amp = 1, attack = 0.5, decay = 2, dur = 0.5, doneAction = 2;
+	arg out = 4, t_trig = 0, freq=900, amp = 1, attack = 0.5, decay = 2, dur = 0.5, doneAction = 2;
 	var env, env_effect, lfo, sig, temp, vibrato;
 
 	lfo = XLine.ar(3, 30);
@@ -86,6 +86,22 @@ SynthDef.new(\waveGenerator,{
 }).add;
 )
 
+// Define wind synth
+(
+SynthDef.new(\windGenerator, {
+
+	arg out = 0, t_trig = 0, amp = 0.5, doneAction = 2;
+	var sig, env;
+
+	sig = BrownNoise.ar();
+	// Bandpass Filter
+	sig = BRF.ar(sig, 400, 0.5);
+	sig = sig * amp;
+
+	Out.ar(out, sig);
+}).add;
+)
+
 
 /**********************************
  *        __  __           _
@@ -99,7 +115,7 @@ SynthDef.new(\waveGenerator,{
 (
 SynthDef(\echoGenerator, {
 
-	arg in = 2, out = 0, delay_time = 2;
+	arg in = 4, out = 0, delay_time = 2;
 	var effect, sig;
 
 	sig = In.ar(in);
@@ -113,7 +129,7 @@ SynthDef(\echoGenerator, {
 (
 SynthDef(\reverbGenerator, {
 
-	arg in = 4, out = 2;
+	arg in = 6, out = 4;
 	var effect, sig;
 
 	sig = In.ar(in);
@@ -127,7 +143,7 @@ SynthDef(\reverbGenerator, {
 (
 SynthDef(\complexReverbGenerator, {
 
-	arg in = 6, out = 0, ratio = 0.75;
+	arg in = 8, out = 0, ratio = 0.75;
 	var effect, sig;
 
 	sig = In.ar(in);
@@ -153,16 +169,19 @@ var c_fx, e_fx, r_fx,
     amp_b = 1, amp_g = 1, amp_w = 1,
     dur_b = 0.5, dur_g = 1.5, dur_w = 3;
 
-c_fx = Synth.new(\complexReverbGenerator, [\input, 6,]);
-e_fx = Synth.new(\echoGenerator, [\input, 4]);
-r_fx = Synth.new(\reverbGenerator, [\input, 2]);
+c_fx = Synth.new(\complexReverbGenerator, [\input, 8,]);
+e_fx = Synth.new(\echoGenerator, [\input, 6]);
+r_fx = Synth.new(\reverbGenerator, [\input, 4]);
+
+// Play the wind
+Synth.new(\windGenerator,{});
 
 // Play the bubbles
 b = Pbind(*[
 	\instrument, \bubbleGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pgauss(Pfuncn({ dur_b }, inf), Pfuncn({ dur_b }, inf) - 0.2),
-	\out, 6,
+	\out, 8,
 	\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
 	\amp , Pkey(\sizefactor).linlin(0, 1, 0.10, 0.04),
 	\amp, Pfuncn({ amp_b }, inf),
@@ -175,12 +194,12 @@ b = Pbind(*[
 g = Pbind(*[
 	\instrument, \gullGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\out, 4,
-	\dur , Pgauss(Pfuncn({ dur_g }, inf), Pfuncn({ dur_g }, inf) - 0.1),
-    \freq, Pkey(\sizefactor).linexp(0, 1, 600, 800),
-    \amp, Pfuncn({ amp_g }, inf),
-    \attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.5),
-    \decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.7),
+	\out, 6,
+	\dur , Pfuncn({ dur_g }, inf),
+    \freq, Pkey(\sizefactor).linexp(0, 1, 400, 800),
+	\amp, Pfuncn({ amp_g }, inf),
+    \attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.8),
+    \decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.8),
 	\doneAction, 2
 ]).play;
 
@@ -188,7 +207,7 @@ g = Pbind(*[
 w = Pbind(*[
 	\instrument, \waveGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\out, 4,
+	\out, 6,
 	//\dur, Pgauss(2, 5),
 	\dur, Pgauss(Pfuncn({ dur_w }, inf), Pfuncn({ dur_w }, inf) -1),
 	\amp , Pfuncn({ amp_w }, inf),
@@ -239,5 +258,7 @@ MIDIdef.cc(\dur_w, { |val, num, chan, src|
 
 // Stop the beach
 (
-b.stop; g.stop; w.stop;
+b.stop;
+g.stop;
+w.stop;
 )
