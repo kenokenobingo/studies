@@ -27,11 +27,12 @@
 (
 SynthDef(\riverGenerator, {
 
-    arg out = 0, amp = 1, cutoff = 1000;
+    | out = 0, amp = 1, cutoff = 1000 |
 	var sig, env;
 
-	//env =
-	sig = SinOsc.ar(0.1) * WhiteNoise.ar();
+	env = SinOsc.ar(0.02);
+	sig = env * OnePole.ar(WhiteNoise.ar(), 0.95);
+	sig = sig * amp;
 
 	Out.ar(out, sig);
 
@@ -42,7 +43,7 @@ SynthDef(\riverGenerator, {
 (
 SynthDef(\sheepGenerator, {
 
-	arg out = 0, amp = 1, dur = 4, doneAction = 2, t_trig = 0;
+	| out = 0, amp = 1, dur = 4, doneAction = 2, t_trig = 0 |
 	var sig = 0, env;
 
 	env = EnvGen.kr(Env.perc(dur/2, dur/2).delay(0.003), t_trig, doneAction: doneAction);
@@ -50,7 +51,7 @@ SynthDef(\sheepGenerator, {
 	sig = 5.collect({
 		arg i;
 
-		sig = sig + Formant.ar(i * 125, XLine.ar(125, 200, 0.5), XLine.ar(125, 200, 0.5), mul: XLine.ar(1, 0.1, 0.5)) + Formant.ar(Vibrato.ar(DC.ar(i * 125), 10, 0.02), XLine.ar(700, 1500, 0, 1), 2500, mul: XLine.ar(0.1, 1, 0.5)) * (1/(i+1));
+		sig = sig + Formant.ar(i * 125, XLine.ar(125, 200, 0.5), XLine.ar(125, 200, 0.5), mul: XLine.ar(1, 0.1, 0.5)) + Formant.ar(Vibrato.ar(DC.ar(i * 125), XLine.ar(10, 20, 1), 0.02), XLine.ar(700, 1500, 0, 1), 2500, mul: XLine.ar(0.1, 1, 0.5)) * (1/(i+1));
 	});
 
 	sig = BPF.ar(sig, 800, 0.9);
@@ -66,7 +67,7 @@ SynthDef(\sheepGenerator, {
 (
 SynthDef(\eagleGenerator, {
 
-	arg out = 0, t_trig = 0, amp = 1, dur = 1, doneAction = 2;
+	| out = 0, t_trig = 0, amp = 1, dur = 1, doneAction = 2 |
 	var sig = 0, env;
 
 	5.collect({
@@ -100,61 +101,88 @@ SynthDef(\eagleGenerator, {
 var amp_e = 1, amp_s = 1,
     dur_e = 1, dur_s = 0.5;
 
-// r = Synth.new(\riverGenerator);
+// Play the river
+~river = Synth.new(\riverGenerator);
 
 // Play the eagle
-e = Pbind(*[
+~eagle = Pbind(*[
+
 	\instrument, \eagleGenerator,
-	\sizefactor, Pwhite(0.0,1,inf),
 	\out, 0,
+	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pgauss(Pfuncn({ dur_e }, inf), Pfuncn({ dur_e }, inf) - 0.1),
     \amp, Pfuncn({ amp_e }, inf),
 	\doneAction, 2
-]).stop;
+
+]).play;
 
 // Play the sheep
-h = Pbind(*[
+~sheep = Pbind(*[
+
 	\instrument, \sheepGenerator,
+	\out, 0,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pgauss(Pfuncn({ dur_s }, inf), Pfuncn({ dur_s }, inf) - 0.1),
     \amp, Pfuncn({ amp_s }, inf),
-	\out, 0,
 	\doneAction, 2
+
 ]).play;
 
 // Control the volume of the eagles
 MIDIdef.cc(\amp_e, {
+
 	|val, num, chan, src|
+
 	[val, num].postln;
 	amp_e = val.linlin(0, 127, 0, 1);
-	amp_e.postln;
-}, 5);
 
-// Control the duration of the eagles
-MIDIdef.cc(\dur_e, {
-	|val, num, chan, src|
+}, 0);
+
+MIDIdef.cc(\amp_r, {
+
+	| val, num, chan, src |
+	var amp_r;
+
 	[val, num].postln;
-	dur_e = val.linlin(0, 127, 0.5, 1.5);
-}, 21);
+	amp_r = val.linlin(0 ,127, 0, 1);
+	~river.set(\amp, amp_r);
+
+}, 1);
 
 // Control the volume of the sheep
 MIDIdef.cc(\amp_s, {
+
 	|val, num, chan, src|
+
 	[val, num].postln;
 	amp_s = val.linlin(0, 127, 0, 1);
-	amp_s.postln;
-}, 6);
+
+}, 2);
+
+// Control the duration of the eagles
+MIDIdef.cc(\dur_e, {
+
+	|val, num, chan, src|
+
+	[val, num].postln;
+	dur_e = val.linlin(0, 127, 0.5, 1.5);
+
+}, 16);
 
 // Control the duration of the sheep
 MIDIdef.cc(\dur_s, {
+
 	|val, num, chan, src|
+
 	[val, num].postln;
 	dur_s = val.linlin(0, 127, 1, 2);
-}, 22);
+
+}, 18);
 )
 
 // Stop the mountains
 (
-e.stop;
-h.stop;
+~eagle.stop;
+~river.free;
+~sheep.stop;
 )

@@ -31,6 +31,7 @@ s.options.numInputBusChannels = 8;
 s.options.numOutputBusChannels = 12;
 // Boot the SuperCollider server
 s.boot;
+// Display server meter
 s.meter;
 )
 
