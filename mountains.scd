@@ -6,7 +6,7 @@
  *  |_| |_| |_|\___/ \__,_|_| |_|\__\__,_|_|_| |_|___/
  *
  *
- *  #+METHOD: Simulation as in `SimCity for Nature`
+ *  #+METHOD: Simulation
  *  #+AUTHOR: K E N O
  *  #+TITLE: In the mountains
  *  #+TOOL: SuperCollider
@@ -23,6 +23,12 @@
  *
  ************************************************************/
 
+// Define buffers
+(
+~realDuck = Buffer.read(Server.default, "samples/".resolveRelative ++ "duck.wav");
+~realOwl = Buffer.read(Server.default, "samples/".resolveRelative ++ "owl.wav");
+)
+
 // Define river synth
 (
 SynthDef(\riverGenerator, {
@@ -36,14 +42,16 @@ SynthDef(\riverGenerator, {
 
 	Out.ar(out, sig);
 
-}).add
+}).add;
 )
+
+Synth.new(\riverGenerator);
 
 // Define sheep synth
 (
 SynthDef(\sheepGenerator, {
 
-	| out = 0, amp = 1, dur = 4, doneAction = 2, t_trig = 0 |
+	| out = 0, amp = 1, dur = 1, doneAction = 2, t_trig = 0 |
 	var sig = 0, env;
 
 	env = EnvGen.kr(Env.perc(dur/2, dur/2).delay(0.003), t_trig, doneAction: doneAction);
@@ -51,41 +59,84 @@ SynthDef(\sheepGenerator, {
 	sig = 5.collect({
 		arg i;
 
-		sig = sig + Formant.ar(i * 125, XLine.ar(125, 200, 0.5), XLine.ar(125, 200, 0.5), mul: XLine.ar(1, 0.1, 0.5)) + Formant.ar(Vibrato.ar(DC.ar(i * 125), XLine.ar(10, 20, 1), 0.02), XLine.ar(700, 1500, 0, 1), 2500, mul: XLine.ar(0.1, 1, 0.5)) * (1/(i+1));
+		sig = sig + Formant.ar(i * 125, XLine.ar(125, 200, 0.5), XLine.ar(125, 200, 0.5), mul: XLine.ar(1, 0.1, 0.5)) + Formant.ar(Vibrato.ar(DC.ar(i * 125), XLine.ar(10, 20, 1), XLine.ar(0.02, 0.1, 1)), XLine.ar(700, 1500, 0, 1), 2500, mul: XLine.ar(0.1, 1, 0.5)) * (1/(i+1));
 	});
 
-	sig = BPF.ar(sig, 800, 0.9);
+	sig = BPF.ar(sig, 750, 0.9);
 	sig = sig * env;
 	sig = amp * sig.dup;
 
 	Out.ar(out, sig);
 
-}).add
+}).add;
 )
 
 // Define eagle synth
 (
 SynthDef(\eagleGenerator, {
 
-	| out = 0, t_trig = 0, amp = 1, dur = 1, doneAction = 2 |
+	| out = 0, t_trig = 0, amp = 0.2, dur = 1, doneAction = 2 |
 	var sig = 0, env;
 
 	5.collect({
 
 		arg i;
-		sig = sig + (Formant.ar(EnvGen.kr(Env([i * 500, i * 750, i * 625], [0.5, 0.5, 0.5])))* 0.2);
+		sig = sig * 0.7 + ((Formant.ar(EnvGen.kr(Env([i * 500, i * 750, i * 625], [0.5, 0.5, 0.3])))* 0.2) * i);
 
 	});
 
-	BPF.ar(sig, 800);
+	sig = BPF.ar(sig, 1000);
 
-	env = EnvGen.kr(Env.perc(dur/2, dur/2).delay(0.003), t_trig, doneAction: doneAction);
+	env = EnvGen.kr(Env.perc(dur/8, dur/12).delay(0.003), t_trig, doneAction: doneAction);
 	sig = sig * env * 0.5;
-	sig = sig.dup * amp;
+	sig = sig * amp;
+	sig = sig.dup;
 
 	Out.ar(out, sig);
 
-}).add
+}).add;
+)
+
+
+/**********************************
+ *        __  __           _
+ *   ___ / _|/ _| ___  ___| |_ ___
+ *  / _ \ |_| |_ / _ \/ __| __/ __|
+ * |  __/  _|  _|  __/ (__| |_\__ \
+ *  \___|_| |_|  \___|\___|\__|___/
+ *
+ **********************************/
+
+// Define mountain echo
+(
+SynthDef(\mountainEchoGenerator, {
+
+	| in = 5, out = 0 |
+	var effect, sig;
+
+	sig = In.ar(in);
+	effect = JPverb.ar(sig, 5);
+	effect = Greyhole.ar(effect, 5, feedback: 0.7);
+
+	Out.ar(out, effect);
+
+}).add;
+)
+
+// Define mountain reverb
+(
+SynthDef(\mountainReverbGenerator, {
+
+	| in = 7, out = 0 |
+	var effect, sig;
+
+	sig = In.ar(in);
+	effect = FreeVerb.ar(sig, 0.2, 0.8);
+	effect = effect * 2;
+
+	Out.ar(out, effect);
+
+}).add;
 )
 
 
@@ -98,8 +149,12 @@ SynthDef(\eagleGenerator, {
  ****************************/
 
 (
-var amp_e = 1, amp_s = 1,
-    dur_e = 1, dur_s = 0.5;
+var amp_e = 0.1, amp_s = 1,
+    dur_e = 4, dur_s = 1,
+    e_fx, r_fx;
+
+e_fx = Synth.new(\mountainEchoGenerator);
+r_fx = Synth.new(\mountainReverbGenerator);
 
 // Play the river
 ~river = Synth.new(\riverGenerator);
@@ -108,7 +163,7 @@ var amp_e = 1, amp_s = 1,
 ~eagle = Pbind(*[
 
 	\instrument, \eagleGenerator,
-	\out, 0,
+	\out, 5,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pgauss(Pfuncn({ dur_e }, inf), Pfuncn({ dur_e }, inf) - 0.1),
     \amp, Pfuncn({ amp_e }, inf),
@@ -120,9 +175,9 @@ var amp_e = 1, amp_s = 1,
 ~sheep = Pbind(*[
 
 	\instrument, \sheepGenerator,
-	\out, 0,
+	\out, 7,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\dur , Pgauss(Pfuncn({ dur_s }, inf), Pfuncn({ dur_s }, inf) - 0.1),
+	\dur , Pgauss(Pfuncn({ dur_s }, inf), Pfuncn({ dur_s }, inf) - 0.25),
     \amp, Pfuncn({ amp_s }, inf),
 	\doneAction, 2
 
@@ -131,7 +186,7 @@ var amp_e = 1, amp_s = 1,
 // Control the volume of the eagles
 MIDIdef.cc(\amp_e, {
 
-	|val, num, chan, src|
+	| val, num, chan, src |
 
 	[val, num].postln;
 	amp_e = val.linlin(0, 127, 0, 1);
@@ -152,7 +207,7 @@ MIDIdef.cc(\amp_r, {
 // Control the volume of the sheep
 MIDIdef.cc(\amp_s, {
 
-	|val, num, chan, src|
+	| val, num, chan, src |
 
 	[val, num].postln;
 	amp_s = val.linlin(0, 127, 0, 1);
@@ -175,7 +230,7 @@ MIDIdef.cc(\dur_s, {
 	|val, num, chan, src|
 
 	[val, num].postln;
-	dur_s = val.linlin(0, 127, 1, 2);
+	dur_s = val.linlin(0, 127, 2, 6);
 
 }, 18);
 )

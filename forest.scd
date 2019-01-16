@@ -6,7 +6,7 @@
  *  |_|  \___/|_|  \___||___/\__|
  *
  *
- *  #+METHOD: Simulation as in `SimCity for Nature`
+ *  #+METHOD: Simulation
  *  #+AUTHOR: K E N O
  *  #+TITLE: Forest
  *  #+TOOL: SuperCollider
@@ -23,7 +23,7 @@
  *
  ************************************************************/
 
-// Define real own buffer
+// Define buffers
 (
 ~realDuck = Buffer.read(Server.default, "samples/".resolveRelative ++ "duck.wav");
 ~realOwl = Buffer.read(Server.default, "samples/".resolveRelative ++ "owl.wav");
@@ -88,22 +88,16 @@ SynthDef(\bufPlaySynth, {
 }).add;
 )
 
-Synth.new(\bufPlaySynth, [\buf, ~realOwl.bufnum]);
-
 // Define rain synth
 (
 SynthDef(\rainGenerator, {
 
-	| amp = 0.3, out =0 |
+	| amp = 0.3, out =0, cutoff = 800 |
 	var gaus, sig;
 
-	gaus = {PinkNoise.ar}.dup(12).sum;
-	gaus = LPF.ar(BPF.ar(gaus, 100, 1/0.4), 500);
+	sig = WhiteNoise.ar() * Crackle.ar() * LFDNoise0.ar();
 
-	sig = SinOsc.ar(gaus.linlin(-1, 1, 40, 80)) * gaus.squared * 10;
-	sig = (sig - 0.35).max(0);
-
-	sig = HPF.ar(sig, 800);
+	sig = HPF.ar(sig, cutoff);
 
 	sig = sig.dup;
 	sig = sig * amp;
@@ -142,7 +136,8 @@ SynthDef(\cricketSynth, {
 }).add;
 )
 
-//Define frog synth
+// Define frog synth
+// CREDIT: Modified version of <https://sccode.org/1-4Xe> by `Manolis`.
 (
 SynthDef(\frogSynth, {
 
@@ -165,6 +160,7 @@ SynthDef(\frogSynth, {
 )
 
 // Define duck synth
+// CREDIT: Modified version of <https://sccode.org/1-4Xe> by `Manolis`.
 (
 SynthDef(\duckSynth, {
 
@@ -242,7 +238,7 @@ h_fx = Synth.new(\hallGenerator, [\input, 5]);
 ~frogs = Synth.new(\frogSynth);
 
 // Play the river
-~river = Synth.new(\rainGenerator);
+~rain = Synth.new(\rainGenerator);
 
 // Play the owl
 ~owl= Pbind(*[
@@ -281,7 +277,7 @@ MIDIdef.noteOn(\triggerRealOwl, {
 	[vel, nn, chan, src].postln;
 	Synth.new(\bufPlaySynth, [\buf, ~realOwl.bufnum]);
 
-}, 60);
+}, 36);
 
 // Triger real duck by playing MIDI note
 MIDIdef.noteOn(\triggerRealDuck, {
@@ -291,7 +287,7 @@ MIDIdef.noteOn(\triggerRealDuck, {
 	[vel, nn, chan, src].postln;
 	Synth.new(\bufPlaySynth, [\buf, ~realDuck.bufnum]);
 
-}, 61);
+}, 37);
 
 
 // Control the volume of the crickets
@@ -352,16 +348,6 @@ MIDIdef.cc(\amp_p, {
 
 }, 4);
 
-// Control the duration of the owls
-MIDIdef.cc(\dur_o, {
-
-	| val, num, chan, src |
-
-	[val, num].postln;
-	dur_o = val.linlin(0, 127, 0.5, 1.5);
-
-}, 5);
-
 // Control the volume of the rain
 MIDIdef.cc(\amp_r, {
 
@@ -370,9 +356,19 @@ MIDIdef.cc(\amp_r, {
 
 	[val, num].postln;
 	amp_r = val.linlin(0, 127, 0, 1);
-	r.set(\amp, amp_r);
+	~rain.set(\amp, amp_r);
 
-}, 6);
+}, 5);
+
+// Control the duration of the owls
+MIDIdef.cc(\dur_o, {
+
+	| val, num, chan, src |
+
+	[val, num].postln;
+	dur_o = val.linlin(0, 127, 0.5, 1.5);
+
+}, 19);
 
 // Control the duration of the woodpecker
 MIDIdef.cc(\dur_p, {
@@ -383,6 +379,17 @@ MIDIdef.cc(\dur_p, {
 	dur_p = val.linlin(0, 127, 0.25, 1.25);
 
 }, 20);
+
+MIDIdef.cc(\filter_rain, {
+
+	| val, num, chan, src |
+	var filter_rain;
+
+	[val, num].postln;
+	filter_rain = val.linlin(0, 127, 20, 1200);
+	~rain.set(\cutoff, filter_rain);
+
+}, 21);
 )
 
 // Stop the forest

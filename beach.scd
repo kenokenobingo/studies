@@ -6,7 +6,7 @@
  *  |_.__/ \___|\__,_|\___|_| |_|
  *
  *
- *  #+METHOD: Simulation as in `SimCity for Nature`
+ *  #+METHOD: Simulation
  *  #+AUTHOR: K E N O
  *  #+TITLE: At the beach (Tag am Meer)
  *  #+TOOL: SuperCollider
@@ -90,12 +90,12 @@ SynthDef.new(\waveGenerator,{
 (
 SynthDef.new(\windGenerator, {
 
-	| out = 0, t_trig = 0, amp = 0.5, doneAction = 2 |
+	| out = 0, t_trig = 0, amp = 0.5, cutoff = 400, doneAction = 2 |
 	var sig, env;
 
-	sig = BrownNoise.ar();
+	sig = BrownNoise.ar() * LFBrownNoise1.ar(0.5) * LFNoise0.ar(0.25);
 	// Bandpass Filter
-	sig = BRF.ar(sig, 400, 0.5);
+	sig = BRF.ar(sig, cutoff, 0.9);
 	sig = sig * amp;
 
 	Out.ar(out, sig);
@@ -305,9 +305,10 @@ MIDIdef.cc(\filter_wind, {
 	var filter_wind;
 
 	[val, num].postln;
-	filter_wind = val.linlin(0, 127, 0, 1);
+	filter_wind = val.linexp(0, 127, 50, 10000);
+	~wind.set(\cutoff, filter_wind);
 
-})
+}, 19);
 )
 
 // Stop the beach
