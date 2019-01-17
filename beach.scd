@@ -14,6 +14,22 @@
  */
 
 
+/**********************************
+ *   _
+ *  | |__  _   _ ___ ___  ___  ___
+ *  | '_ \| | | / __/ __|/ _ \/ __|
+ *  | |_) | |_| \__ \__ \  __/\__ \
+ *  |_.__/ \__,_|___/___/\___||___/
+ *
+***********************************/
+
+(
+~beachEcho = Bus.audio(s, 1);
+~beachReverb = Bus.audio(s, 1);
+~beachComplexReverb = Bus.audio(s, 1);
+)
+
+
 /************************************************************
  *   _           _                                   _
  *  (_)_ __  ___| |_ _ __ _   _ _ __ ___   ___ _ __ | |_ ___
@@ -27,7 +43,7 @@
 (
 SynthDef(\bubbleGenerator, {
 
-	| out=0, t_trig=0, attack=0.01, decay=0.08, freq=400, amp=0.1, pitchcurvelen=0.1, doneAction=2 |
+	| t_trig = 0, attack = 0.01, decay = 0.08, freq = 400, amp = 0.1, pitchcurvelen = 0.1, doneAction = 2 |
 	var env, pitch, sig;
 
 	env = amp * EnvGen.ar(Env.perc(attack, decay).delay(0.003), t_trig, doneAction: doneAction);
@@ -37,9 +53,13 @@ SynthDef(\bubbleGenerator, {
 	// Apply low-pass filter to the signal
 	sig = LPF.ar(sig, 500) * env * 0.35;
 
-	Out.ar(out, sig);
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
 
-}).add
+	Out.ar(~beachComplexReverb, sig);
+
+}).add;
 )
 
 // Define sea gull synth
@@ -60,7 +80,11 @@ SynthDef.new(\gullGenerator, {
 	// Apply LFO and envelope
 	sig = 0.1 * env * sig;
 
-	Out.ar(out, sig);
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+
+	Out.ar(~beachReverb, sig);
 
 }).add;
 )
@@ -81,7 +105,11 @@ SynthDef.new(\waveGenerator,{
 	sig = amp * sig * env;
 	sig = sig * 0.3;
 
-	Out.ar(out, sig);
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+
+	Out.ar(~beachReverb, sig);
 
 }).add;
 )
@@ -98,7 +126,11 @@ SynthDef.new(\windGenerator, {
 	sig = BRF.ar(sig, cutoff, 0.9);
 	sig = sig * amp;
 
-	Out.ar(out, sig);
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+
+	Out.ar(~ambisonicsBus, sig);
 
 }).add;
 )
@@ -116,13 +148,13 @@ SynthDef.new(\windGenerator, {
 (
 SynthDef(\echoGenerator, {
 
-	arg in = 4, out = 0, delay_time = 2;
+	| delay_time = 2 |
 	var effect, sig;
 
-	sig = In.ar(in);
+	sig = In.ar(~beachEcho);
 	effect = Greyhole.ar(sig, delay_time, 0.1, 0.2, 0.8, feedback: 0.3);
 
-	Out.ar(out, effect);
+	Out.ar(~ambisonicsBus, effect);
 
 }).add;
 )
@@ -130,13 +162,12 @@ SynthDef(\echoGenerator, {
 (
 SynthDef(\reverbGenerator, {
 
-	arg in = 6, out = 4;
 	var effect, sig;
 
-	sig = In.ar(in);
+	sig = In.ar(~beachReverb);
 	effect = FreeVerb.ar(sig, 0.33, 0.8, 0.3, 0.25);
 
-	Out.ar(out, effect);
+	Out.ar(~beachEcho, effect);
 
 }).add;
 )
@@ -144,15 +175,15 @@ SynthDef(\reverbGenerator, {
 (
 SynthDef(\complexReverbGenerator, {
 
-	arg in = 8, out = 0, ratio = 0.75;
+	| ratio = 0.75 |
 	var effect, sig;
 
-	sig = In.ar(in);
+	sig = In.ar(~beachComplexReverb);
 	effect = JPverb.ar(sig, 5, 0, 1, 0, 0);
 	effect = (sig * ratio) + (effect * (1 - ratio));
 	effect = effect * 0.5;
 
-	Out.ar(out, effect);
+	Out.ar(~ambisonicsBus, effect);
 
 }).add;
 )
@@ -172,15 +203,14 @@ var c_fx, e_fx, r_fx,
     dur_b = 0.5, dur_g = 1.5, dur_w = 3;
 
 // Effects
-c_fx = Synth.new(\complexReverbGenerator, [\input, 8,]);
-e_fx = Synth.new(\echoGenerator, [\input, 6]);
-r_fx = Synth.new(\reverbGenerator, [\input, 4]);
+c_fx = Synth.new(\complexReverbGenerator);
+e_fx = Synth.new(\echoGenerator);
+r_fx = Synth.new(\reverbGenerator);
 
 // Play the bubbles
 ~bubbles = Pbind(*[
 
 	\instrument, \bubbleGenerator,
-	\out, 8,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pgauss(Pfuncn({ dur_b }, inf), Pfuncn({ dur_b }, inf) - 0.2),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
@@ -196,7 +226,6 @@ r_fx = Synth.new(\reverbGenerator, [\input, 4]);
 ~gulls = Pbind(*[
 
 	\instrument, \gullGenerator,
-	\out, 6,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pfuncn({ dur_g }, inf),
     \freq, Pkey(\sizefactor).linexp(0, 1, 400, 800),
@@ -211,7 +240,6 @@ r_fx = Synth.new(\reverbGenerator, [\input, 4]);
 ~waves = Pbind(*[
 
 	\instrument, \waveGenerator,
-	\out, 6,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur, Pgauss(Pfuncn({ dur_w }, inf), Pfuncn({ dur_w }, inf) -1),
 	\amp , Pfuncn({ amp_w }, inf),

@@ -46,6 +46,13 @@
  */
 
 
+// Fetch and install dependencies
+(
+Quarks.install("https://github.com/ambisonictoolkit/atk-sc3.git");
+FoaXformDisplay.new;
+)
+
+
 /************************************************************
  *
  *   ___  ___ _ ____   _____ _ __
@@ -59,12 +66,45 @@
 // Increase the server’s allocated memory
 s.options.memSize = 1000000;
 // Increase the number of the server’s input and output busses
-s.options.numInputBusChannels = 8;
-s.options.numOutputBusChannels = 12;
+s.options.numInputBusChannels = 0;
+s.options.numOutputBusChannels = 8;
 // Boot the SuperCollider server
 s.boot;
 // Display server meter
 s.meter;
+)
+
+
+/************************************************************
+ *
+ *   ___ _ __   __ _  ___ ___
+ *  / __| '_ \ / _` |/ __/ _ \
+ *  \__ \ |_) | (_| | (_|  __/
+ *  |___/ .__/ \__,_|\___\___|
+ *      |_|
+ *
+ ************************************************************/
+
+(
+~ambisonicsBus = Bus.audio(s, 8);
+)
+
+(
+SynthDef(\ambiOut, {
+
+	| out = 0 |
+	var sig;
+
+	sig = In.ar(~ambisonicsBus, 8);
+	sig = FoaDecode.ar(sig, FoaDecoderMatrix.newPeri(8));
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+Synth.new(\ambiOut);
 )
 
 

@@ -14,6 +14,21 @@
  */
 
 
+/**********************************
+ *   _
+ *  | |__  _   _ ___ ___  ___  ___
+ *  | '_ \| | | / __/ __|/ _ \/ __|
+ *  | |_) | |_| \__ \__ \  __/\__ \
+ *  |_.__/ \__,_|___/___/\___||___/
+ *
+***********************************/
+
+(
+~mountainEcho = Bus.audio(s, 1);
+~mountainReverb = Bus.audio(s, 1);
+)
+
+
 /************************************************************
  *   _           _                                   _
  *  (_)_ __  ___| |_ _ __ _   _ _ __ ___   ___ _ __ | |_ ___
@@ -36,16 +51,18 @@ SynthDef(\riverGenerator, {
     | out = 0, amp = 1, cutoff = 1000 |
 	var sig, env;
 
-	env = SinOsc.ar(0.02);
+	env = SinOsc.ar(0.02) * 0.5;
 	sig = env * OnePole.ar(WhiteNoise.ar(), 0.95);
 	sig = sig * amp;
 
-	Out.ar(out, sig);
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+
+	Out.ar(~ambisonicsBus, sig);
 
 }).add;
 )
-
-Synth.new(\riverGenerator);
 
 // Define sheep synth
 (
@@ -64,9 +81,13 @@ SynthDef(\sheepGenerator, {
 
 	sig = BPF.ar(sig, 750, 0.9);
 	sig = sig * env;
-	sig = amp * sig.dup;
+	sig = amp * sig;
 
-	Out.ar(out, sig);
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+
+	Out.ar(~mountainReverb, sig);
 
 }).add;
 )
@@ -90,9 +111,12 @@ SynthDef(\eagleGenerator, {
 	env = EnvGen.kr(Env.perc(dur/8, dur/12).delay(0.003), t_trig, doneAction: doneAction);
 	sig = sig * env * 0.5;
 	sig = sig * amp;
-	sig = sig.dup;
 
-	Out.ar(out, sig);
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+
+	Out.ar(~mountainEcho, sig);
 
 }).add;
 )
@@ -111,14 +135,13 @@ SynthDef(\eagleGenerator, {
 (
 SynthDef(\mountainEchoGenerator, {
 
-	| in = 5, out = 0 |
 	var effect, sig;
 
-	sig = In.ar(in);
+	sig = In.ar(~mountainEcho);
 	effect = JPverb.ar(sig, 5);
 	effect = Greyhole.ar(effect, 5, feedback: 0.7);
 
-	Out.ar(out, effect);
+	Out.ar(~ambisonicsBus, effect);
 
 }).add;
 )
@@ -127,14 +150,13 @@ SynthDef(\mountainEchoGenerator, {
 (
 SynthDef(\mountainReverbGenerator, {
 
-	| in = 7, out = 0 |
 	var effect, sig;
 
-	sig = In.ar(in);
+	sig = In.ar(~mountainReverb);
 	effect = FreeVerb.ar(sig, 0.2, 0.8);
 	effect = effect * 2;
 
-	Out.ar(out, effect);
+	Out.ar(~ambisonicsBus, effect);
 
 }).add;
 )
@@ -163,7 +185,6 @@ r_fx = Synth.new(\mountainReverbGenerator);
 ~eagle = Pbind(*[
 
 	\instrument, \eagleGenerator,
-	\out, 5,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pgauss(Pfuncn({ dur_e }, inf), Pfuncn({ dur_e }, inf) - 0.1),
     \amp, Pfuncn({ amp_e }, inf),
@@ -175,7 +196,6 @@ r_fx = Synth.new(\mountainReverbGenerator);
 ~sheep = Pbind(*[
 
 	\instrument, \sheepGenerator,
-	\out, 7,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pgauss(Pfuncn({ dur_s }, inf), Pfuncn({ dur_s }, inf) - 0.25),
     \amp, Pfuncn({ amp_s }, inf),

@@ -14,6 +14,20 @@
  */
 
 
+/**********************************
+ *   _
+ *  | |__  _   _ ___ ___  ___  ___
+ *  | '_ \| | | / __/ __|/ _ \/ __|
+ *  | |_) | |_| \__ \__ \  __/\__ \
+ *  |_.__/ \__,_|___/___/\___||___/
+ *
+***********************************/
+
+(
+~forestHall = Bus.audio(s, 1);
+)
+
+
 /************************************************************
  *   _           _                                   _
  *  (_)_ __  ___| |_ _ __ _   _ _ __ ___   ___ _ __ | |_ ___
@@ -44,7 +58,7 @@ SynthDef(\woodpeckerGenerator, {
 	sig = sig * env;
 	sig = sig * 10;
 
-    Out.ar(out, sig);
+    Out.ar(~ambisonicsBus, sig);
 }).add;
 )
 
@@ -64,10 +78,10 @@ SynthDef(\owlGenerator, {
 		sig = Formant.ar(Vibrato.ar(i * 80, 3, 0.015), XLine.ar(320, 100, 0, dur), 320);
 	});
 	sig = BPF.ar(sig, 320);
-	sig = sig.dup * env;
+	sig = sig * env;
 	sig = sig * amp;
 
-	Out.ar(out, sig);
+	Out.ar(~forestHall, sig);
 
 }).add;
 )
@@ -76,14 +90,17 @@ SynthDef(\owlGenerator, {
 (
 SynthDef(\bufPlaySynth, {
 
-	| amp = 1, out = 0, buf, doneAction = 2 |
+	| amp = 1, buf, doneAction = 2 |
 	var sig;
 
 	sig= PlayBuf.ar(1, buf, doneAction: doneAction);
 	sig = sig * amp;
-	sig = sig;
 
-	Out.ar(out, sig);
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+
+	Out.ar(~ambisonicsBus, sig);
 
 }).add;
 )
@@ -92,17 +109,20 @@ SynthDef(\bufPlaySynth, {
 (
 SynthDef(\rainGenerator, {
 
-	| amp = 0.3, out =0, cutoff = 800 |
+	| amp = 0.3, cutoff = 800 |
 	var gaus, sig;
 
 	sig = WhiteNoise.ar() * Crackle.ar() * LFDNoise0.ar();
 
 	sig = HPF.ar(sig, cutoff);
 
-	sig = sig.dup;
 	sig = sig * amp;
 
-	Out.ar(out, sig);
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+
+	Out.ar(~ambisonicsBus, sig);
 
 }).add;
 )
@@ -111,7 +131,7 @@ SynthDef(\rainGenerator, {
 (
 SynthDef(\cricketSynth, {
 
-	| amp = 1, out = 0 |
+	| amp = 1 |
 
 	var trig, seq, demand, sig;
 
@@ -131,7 +151,11 @@ SynthDef(\cricketSynth, {
 	sig = ((sig - OnePole.ar(sig, exp(-2pi * (4000 * SampleDur.ir)))) * 0.5)!2;
 	sig = sig * amp;
 
-	Out.ar(out, sig);
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+
+	Out.ar(~ambisonicsBus, sig);
 
 }).add;
 )
@@ -142,9 +166,9 @@ SynthDef(\cricketSynth, {
 SynthDef(\frogSynth, {
 
 	| amp = 1, rateL = 0.2, rateR = 0.3, freq = 2, feedback = 50, mul = 0.3 , lpfreq = 2500 |
+	var sig;
 
-	Out.ar(0,
-		FreeVerb.ar(
+	sig = FreeVerb.ar(
 			BLowPass.ar(
 				amp * SinOscFB.ar(
 					LFDNoise1.kr([rateL, rateR], freq), feedback;
@@ -154,8 +178,14 @@ SynthDef(\frogSynth, {
 			),
 			0.3,
 			0.0
-		)
-	)
+		);
+
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+
+	Out.ar(~ambisonicsBus, sig);
+
 }).add;
 )
 
@@ -165,8 +195,9 @@ SynthDef(\frogSynth, {
 SynthDef(\duckSynth, {
 
 	| amp = 1, rateL = 1, rateR = 2, freq = 1, feedback = 90, mul = 1 , lpfreq = 1900 |
-	Out.ar(0,
-		FreeVerb.ar(
+	var sig;
+
+	sig = FreeVerb.ar(
 			BLowPass.ar(
 				amp * SinOscFB.ar(
 					LFDNoise1.kr([rateL, rateR], freq), feedback;
@@ -176,8 +207,13 @@ SynthDef(\duckSynth, {
 			),
 			0.3,
 			0.0
-		)
-	)
+		);
+
+	// Ambisonics
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+
+	Out.ar(~ambisonicsBus, sig);
 
 }).add;
 )
@@ -196,16 +232,15 @@ SynthDef(\duckSynth, {
 (
 SynthDef(\hallGenerator, {
 
-	arg in = 5, out = 0;
 	var effect, sig;
 
-	sig = In.ar(in);
+	sig = In.ar(~forestHall);
 	sig = sig;
 	effect = FreeVerb.ar(sig, 0.3, 0.5, 0.8);
 	effect = Greyhole.ar(effect, 2, 0.2, diff: 0.8, feedback: 0.4);
 	effect = effect;
 
-	Out.ar(out, effect);
+	Out.ar(~ambisonicsBus, effect);
 
 }).add;
 )
@@ -226,7 +261,7 @@ var p1, p2, p3,
     dur_o = 1, dur_p = 1, dur_r = 1;
 
 // Effect
-h_fx = Synth.new(\hallGenerator, [\input, 5]);
+h_fx = Synth.new(\hallGenerator);
 
 // Play the crickets
 ~crickets = Synth.new(\cricketSynth);
@@ -246,7 +281,6 @@ h_fx = Synth.new(\hallGenerator, [\input, 5]);
 	\instrument, \owlGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\delta, 10,
-	\out, 5,
 	\amp , Pfuncn({ amp_o }, inf),
 	\dur, Pfuncn({ dur_o }, inf),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 200, 300),
@@ -260,7 +294,6 @@ h_fx = Synth.new(\hallGenerator, [\input, 5]);
 
 	\instrument, \woodpeckerGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\out, 0,
 	\amp, Pfuncn({ amp_p }, inf),
 	\dur, Pgauss(0.05, 0.05, inf),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 50, 100),
