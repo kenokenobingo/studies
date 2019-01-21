@@ -24,8 +24,15 @@
 ***********************************/
 
 (
-~mountainEcho = Bus.audio(s, 1);
-~mountainReverb = Bus.audio(s, 1);
+// Effects In
+~moutainEagleFx = Bus.audio(s, 1);
+~mountainRiverFx = Bus.audio(s, 1);
+~mountainSheepFx = Bus.audio(s, 1);
+
+// Ambisonics Encode + Transform In
+~mountainsRiverAmbi = Bus.audio(s, 1);
+~moutainsSheepAmbi = Bus.audio(s, 1);
+~moutainsEagleAmbi = Bus.audio(s, 2);
 )
 
 
@@ -48,18 +55,14 @@
 (
 SynthDef(\riverGenerator, {
 
-    | out = 0, amp = 1, cutoff = 1000 |
+    | out = 0, amp = 0.2, cutoff = 1000 |
 	var sig, env;
 
 	env = SinOsc.ar(0.02) * 0.5;
 	sig = env * OnePole.ar(WhiteNoise.ar(), 0.95);
 	sig = sig * amp;
 
-	// Ambisonics
-	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
-
-	Out.ar(~ambisonicsBus, sig);
+	Out.ar(out, sig);
 
 }).add;
 )
@@ -84,10 +87,12 @@ SynthDef(\sheepGenerator, {
 	sig = amp * sig;
 
 	// Ambisonics
+	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+	// Transform
+	sig = FoaZoom.ar(sig, pi, pi);
 
-	Out.ar(~mountainReverb, sig);
+	Out.ar(out, sig);
 
 }).add;
 )
@@ -113,10 +118,12 @@ SynthDef(\eagleGenerator, {
 	sig = sig * amp;
 
 	// Ambisonics
+	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+	// Transform
+	sig = FoaZoom.ar(sig, pi, pi/4, pi);
 
-	Out.ar(~mountainEcho, sig);
+	Out.ar(out, sig);
 
 }).add;
 )
@@ -135,13 +142,14 @@ SynthDef(\eagleGenerator, {
 (
 SynthDef(\mountainEchoGenerator, {
 
+	| in, out |
 	var effect, sig;
 
-	sig = In.ar(~mountainEcho);
+	sig = In.ar(in);
 	effect = JPverb.ar(sig, 5);
 	effect = Greyhole.ar(effect, 5, feedback: 0.7);
 
-	Out.ar(~ambisonicsBus, effect);
+	Out.ar(out, effect);
 
 }).add;
 )
@@ -150,13 +158,78 @@ SynthDef(\mountainEchoGenerator, {
 (
 SynthDef(\mountainReverbGenerator, {
 
+	| in, out |
 	var effect, sig;
 
-	sig = In.ar(~mountainReverb);
+	sig = In.ar(in);
 	effect = FreeVerb.ar(sig, 0.2, 0.8);
 	effect = effect * 2;
 
-	Out.ar(~ambisonicsBus, effect);
+	Out.ar(out, effect);
+
+}).add;
+)
+
+/************************************************************
+ *
+ *   ___ _ __   __ _  ___ ___
+ *  / __| '_ \ / _` |/ __/ _ \
+ *  \__ \ |_) | (_| | (_|  __/
+ *  |___/ .__/ \__,_|\___\___|
+ *      |_|
+ *
+ ************************************************************/
+
+(
+SynthDef(\eagleSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in, 2);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
+	// Transform
+	sig = FoaZoom.ar(sig, pi/4, pi, 0);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\riverSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, 0, 0, 0);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\sheepSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, 0, 0, 0);
+
+	Out.ar(out, sig);
 
 }).add;
 )
@@ -173,18 +246,49 @@ SynthDef(\mountainReverbGenerator, {
 (
 var amp_e = 0.1, amp_s = 1,
     dur_e = 4, dur_s = 1,
-    e_fx, r_fx;
+    e_am, r_am, s_am,
+    eagle_echo, river_reverb, sheep_reverb;
 
-e_fx = Synth.new(\mountainEchoGenerator);
-r_fx = Synth.new(\mountainReverbGenerator);
+// Effects
+eagle_echo = Synth.new(\mountainEchoGenerator, [
+	\in, ~moutainEagleFx,
+	\out, ~moutainEagleAmbi
+]);
+
+river_reverb = Synth.new(\mountainReverbGenerator, [
+	\in, ~moutainRiverFx,
+	\out, ~mountainRiverAmbi
+]);
+
+sheep_reverb = Synth.new(\mountainReverbGenerator, [
+	\in, ~moutainSheepFx,
+	\out, ~moutainSheepAmbi
+]);
+
+// Ambisonics Input + Transform
+e_am = Synth.new(\eagleSpace, [
+	\in, ~moutainEagleAmbi,
+	\out, ~ambisonicsBus
+]);
+r_am = Synth.new(\riverSpace, [
+	\in, ~moutainRiverAmbi,
+	\out, ~ambisonicsBus
+]);
+s_am = Synth.new(\sheepSpace, [
+	\in, ~moutainSheepAmbi,
+	\out, ~ambisonicsBus
+]);
 
 // Play the river
-~river = Synth.new(\riverGenerator);
+~river = Synth.new(\riverGenerator, [
+	\out, ~moutainRiverFx
+]);
 
 // Play the eagle
 ~eagle = Pbind(*[
 
 	\instrument, \eagleGenerator,
+	\out, ~moutainEagleFx,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pgauss(Pfuncn({ dur_e }, inf), Pfuncn({ dur_e }, inf) - 0.1),
     \amp, Pfuncn({ amp_e }, inf),
@@ -197,6 +301,7 @@ r_fx = Synth.new(\mountainReverbGenerator);
 
 	\instrument, \sheepGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
+	\out, ~moutainSheepFx,
 	\dur , Pgauss(Pfuncn({ dur_s }, inf), Pfuncn({ dur_s }, inf) - 0.25),
     \amp, Pfuncn({ amp_s }, inf),
 	\doneAction, 2

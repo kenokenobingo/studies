@@ -24,7 +24,24 @@
 ***********************************/
 
 (
-~forestHall = Bus.audio(s, 1);
+// Effects In
+~forestPeckerFx = Bus.audio(s, 1);
+~forestOwlFx = Bus.audio(s, 1);
+~forestCricketFx = Bus.audio(s, 1);
+~forestFrogFx = Bus.audio(s, 1);
+~forestDuckFx = Bus.audio(s, 1);
+~forestRealOwlFx = Bus.audio(s, 1);
+~forestRealDuckFx = Bus.audio(s, 1);
+
+// Ambisonics Encode + Transform In
+~forestPeckerAmbi = Bus.audio(s, 2);
+~forestOwlAmbi = Bus.audio(s, 2);
+~forestCricketAmbi = Bus.audio(s, 1);
+~forestFrogAmbi = Bus.audio(s, 1);
+~forestDuckAmbi = Bus.audio(s, 1);
+~forestRealOwlAmbi = Bus.audio(s, 2);
+~forestRealDuckAmbi = Bus.audio(s, 2);
+~windAmbi = Bus.audio(s, 1);
 )
 
 
@@ -58,6 +75,12 @@ SynthDef(\woodpeckerGenerator, {
 	sig = sig * env;
 	sig = sig * 10;
 
+	// Ambisonics
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, pi, pi/8, (pi * 5/8));
+
     Out.ar(~ambisonicsBus, sig);
 }).add;
 )
@@ -81,7 +104,13 @@ SynthDef(\owlGenerator, {
 	sig = sig * env;
 	sig = sig * amp;
 
-	Out.ar(~forestHall, sig);
+	// Ambisonics
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, pi, pi/9, pi);
+
+	Out.ar(~forestOwlFx, sig);
 
 }).add;
 )
@@ -90,17 +119,19 @@ SynthDef(\owlGenerator, {
 (
 SynthDef(\bufPlaySynth, {
 
-	| amp = 1, buf, doneAction = 2 |
+	| out, amp = 1, buf, doneAction = 2 |
 	var sig;
 
 	sig= PlayBuf.ar(1, buf, doneAction: doneAction);
 	sig = sig * amp;
 
 	// Ambisonics
+	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
 	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
 
-	Out.ar(~ambisonicsBus, sig);
+	Out.ar(out, sig);
 
 }).add;
 )
@@ -119,8 +150,10 @@ SynthDef(\rainGenerator, {
 	sig = sig * amp;
 
 	// Ambisonics
+	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+	// Transform
+	sig = FoaZoom.ar(sig, 0, 0, 0);
 
 	Out.ar(~ambisonicsBus, sig);
 
@@ -152,8 +185,10 @@ SynthDef(\cricketSynth, {
 	sig = sig * amp;
 
 	// Ambisonics
+	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+	// Transform
+	sig = FoaZoom.ar(sig, pi/4, 0, 0);
 
 	Out.ar(~ambisonicsBus, sig);
 
@@ -165,7 +200,7 @@ SynthDef(\cricketSynth, {
 (
 SynthDef(\frogSynth, {
 
-	| amp = 1, rateL = 0.2, rateR = 0.3, freq = 2, feedback = 50, mul = 0.3 , lpfreq = 2500 |
+	| out = 0, amp = 1, rateL = 0.2, rateR = 0.3, freq = 2, feedback = 50, mul = 0.3 , lpfreq = 2500 |
 	var sig;
 
 	sig = FreeVerb.ar(
@@ -181,10 +216,12 @@ SynthDef(\frogSynth, {
 		);
 
 	// Ambisonics
+	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+	// Transform
+	sig = FoaZoom.ar(sig, pi/4, pi, 0);
 
-	Out.ar(~ambisonicsBus, sig);
+	Out.ar(out, sig);
 
 }).add;
 )
@@ -194,7 +231,7 @@ SynthDef(\frogSynth, {
 (
 SynthDef(\duckSynth, {
 
-	| amp = 1, rateL = 1, rateR = 2, freq = 1, feedback = 90, mul = 1 , lpfreq = 1900 |
+	| out = 0, amp = 1, rateL = 1, rateR = 2, freq = 1, feedback = 90, mul = 1 , lpfreq = 1900 |
 	var sig;
 
 	sig = FreeVerb.ar(
@@ -211,9 +248,9 @@ SynthDef(\duckSynth, {
 
 	// Ambisonics
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+	sig = FoaZoom.ar(sig, pi/4, pi, 0);
 
-	Out.ar(~ambisonicsBus, sig);
+	Out.ar(out, sig);
 
 }).add;
 )
@@ -232,15 +269,135 @@ SynthDef(\duckSynth, {
 (
 SynthDef(\hallGenerator, {
 
+	| in, out |
 	var effect, sig;
 
-	sig = In.ar(~forestHall);
+	sig = In.ar(in);
 	sig = sig;
 	effect = FreeVerb.ar(sig, 0.3, 0.5, 0.8);
 	effect = Greyhole.ar(effect, 2, 0.2, diff: 0.8, feedback: 0.4);
 	effect = effect;
 
-	Out.ar(~ambisonicsBus, effect);
+	Out.ar(out, effect);
+
+}).add;
+)
+
+
+/************************************************************
+ *
+ *   ___ _ __   __ _  ___ ___
+ *  / __| '_ \ / _` |/ __/ _ \
+ *  \__ \ |_) | (_| | (_|  __/
+ *  |___/ .__/ \__,_|\___\___|
+ *      |_|
+ *
+ ************************************************************/
+
+(
+SynthDef(\duckSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in, 2);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
+	// Transform
+	sig = FoaZoom.ar(sig, pi/4, pi, 0);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\frogSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in, 2);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
+	// Transform
+	sig = FoaZoom.ar(sig, pi/4, 0, pi/2);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\owlSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in, 2);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
+	// Transform
+	sig = FoaZoom.ar(sig, pi/3, pi, 0);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\realDuckSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, 0, 0, 0);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\realOwlSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, 0, 0, 0);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\peckerSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, 0, 0, 0);
+
+	Out.ar(out, sig);
 
 }).add;
 )
@@ -256,29 +413,73 @@ SynthDef(\hallGenerator, {
 
 (
 var p1, p2, p3,
-    h_fx,
+    owl_hall, realOwl_hall,
+    d_am, f_am, o_am, rd_am, ro_am, w_am,
     amp_o = 1, amp_p = 1, amp_r = 1,
     dur_o = 1, dur_p = 1, dur_r = 1;
 
-// Effect
-h_fx = Synth.new(\hallGenerator);
+// Effects
+owl_hall = Synth.new(\hallGenerator, [
+	\in, ~forestOwlFx,
+	\out, ~forestOwlAmbi
+]);
+
+realOwl_hall = Synth.new(\hallGenerator, [
+	\in, ~forestRealOwlFx,
+	\out, ~forestRealOwlAmbi
+]);
+
+// Ambisonics Input + Transform
+d_am = Synth.new(\duckSpace, [
+	\in, ~forestDuckAmbi,
+	\out, ~ambisonicsBus
+]);
+f_am = Synth.new(\frogSpace, [
+	\in, ~forestFrogAmbi,
+	\out, ~ambisonicsBus
+]);
+o_am = Synth.new(\owlSpace, [
+	\in, ~forestOwlAmbi,
+	\out, ~ambisonicsBus
+]);
+rd_am = Synth.new(\realDuckSpace, [
+	\in, ~forestRealDuckAmbi,
+	\out, ~ambisonicsBus
+]);
+ro_am = Synth.new(\realOwlSpace, [
+	\in, ~forestRealOwlAmbi,
+	\out, ~ambisonicsBus
+]);
+w_am = Synth.new(\peckerSpace, [
+	\in, ~forestPeckerAmbi,
+	\out, ~ambisonicsBus
+]);
 
 // Play the crickets
-~crickets = Synth.new(\cricketSynth);
+~cricket = Synth.new(\cricketSynth, [
+	\out, ~forestCricketFx
+]);
 
 // Play the ducks
-~ducks = Synth.new(\duckSynth);
+~duck = Synth.new(\duckSynth, [
+	\out, ~forestDuckFx
+]);
 
 // Play the frog
-~frogs = Synth.new(\frogSynth);
+~frog = Synth.new(\frogSynth, [
+	\out, ~forestFrogFx
+]);
 
 // Play the river
-~rain = Synth.new(\rainGenerator);
+~rain = Synth.new(\rainGenerator, [
+	\out, ~forestRainFx
+]);
 
 // Play the owl
 ~owl= Pbind(*[
 
 	\instrument, \owlGenerator,
+	\out, ~forestOwlFx,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\delta, 10,
 	\amp , Pfuncn({ amp_o }, inf),
@@ -293,6 +494,7 @@ h_fx = Synth.new(\hallGenerator);
 ~pecker = Pbind(*[
 
 	\instrument, \woodpeckerGenerator,
+	\out, ~forestPeckerFx,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\amp, Pfuncn({ amp_p }, inf),
 	\dur, Pgauss(0.05, 0.05, inf),
@@ -427,9 +629,9 @@ MIDIdef.cc(\filter_rain, {
 
 // Stop the forest
 (
-~crickets.free;
-~ducks.free;
-~frogs.free;
+~cricket.free;
+~duck.free;
+~frog.free;
 ~owl.stop;
 ~pecker.stop;
 ~river.free;

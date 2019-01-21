@@ -24,9 +24,17 @@
 ***********************************/
 
 (
-~beachEcho = Bus.audio(s, 1);
-~beachReverb = Bus.audio(s, 1);
-~beachComplexReverb = Bus.audio(s, 1);
+// Effects In
+~beachBubbleFx = Bus.audio(s, 1);
+~beachGullFx = Bus.audio(s, 1);
+~beachWaveFx = Bus.audio(s, 1);
+~windFx = Bus.audio(s, 1);
+
+// Ambisonics Encode + Transform In
+~beachBubbleAmbi = Bus.audio(s, 2);
+~beachGullAmbi = Bus.audio(s, 2);
+~beachWaveAmbi = Bus.audio(s, 2);
+~windAmbi = Bus.audio(s, 1);
 )
 
 
@@ -43,7 +51,7 @@
 (
 SynthDef(\bubbleGenerator, {
 
-	| t_trig = 0, attack = 0.01, decay = 0.08, freq = 400, amp = 0.1, pitchcurvelen = 0.1, doneAction = 2 |
+	| out = 0, t_trig = 0, attack = 0.01, decay = 0.08, freq = 400, amp = 0.1, pitchcurvelen = 0.1, doneAction = 2 |
 	var env, pitch, sig;
 
 	env = amp * EnvGen.ar(Env.perc(attack, decay).delay(0.003), t_trig, doneAction: doneAction);
@@ -53,11 +61,7 @@ SynthDef(\bubbleGenerator, {
 	// Apply low-pass filter to the signal
 	sig = LPF.ar(sig, 500) * env * 0.35;
 
-	// Ambisonics
-	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
-
-	Out.ar(~beachComplexReverb, sig);
+	Out.ar(out, sig);
 
 }).add;
 )
@@ -66,7 +70,7 @@ SynthDef(\bubbleGenerator, {
 (
 SynthDef.new(\gullGenerator, {
 
-	| out = 4, t_trig = 0, freq=900, amp = 1, attack = 0.5, decay = 2, dur = 0.5, doneAction = 2 |
+	| out = 0, t_trig = 0, freq=900, amp = 1, attack = 0.5, decay = 2, dur = 0.5, doneAction = 2 |
 	var env, env_effect, lfo, sig, temp, vibrato;
 
 	lfo = XLine.ar(3, 30);
@@ -80,18 +84,14 @@ SynthDef.new(\gullGenerator, {
 	// Apply LFO and envelope
 	sig = 0.1 * env * sig;
 
-	// Ambisonics
-	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
-
-	Out.ar(~beachReverb, sig);
+	Out.ar(out, sig);
 
 }).add;
 )
 
 // Define wave synth
 (
-SynthDef.new(\waveGenerator,{
+SynthDef.new(\waveGenerator, {
 
 	| out = 0, t_trig = 0, attack = 3, decay = 2, amp = 0.5, freqfactor = 0.75, doneAction = 2 |
 	var sig, env;
@@ -101,15 +101,11 @@ SynthDef.new(\waveGenerator,{
 	// Mix pink and brown noise for wave signal
 	sig = (PinkNoise.ar(1)!2 * freqfactor) + (BrownNoise.ar(EnvGen.kr(Env.new([0.2, 1, 0], [attack, decay], [1, -1])))!2 * (1 - freqfactor));
 
-	// apply envelope
+	// Apply envelope
 	sig = amp * sig * env;
 	sig = sig * 0.3;
 
-	// Ambisonics
-	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
-
-	Out.ar(~beachReverb, sig);
+	Out.ar(out, sig);
 
 }).add;
 )
@@ -128,9 +124,9 @@ SynthDef.new(\windGenerator, {
 
 	// Ambisonics
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	sig = FoaZoom.ar(sig, MouseX.kr(0, pi/2).poll, 0);
+	sig = FoaZoom.ar(sig, 0, 0);
 
-	Out.ar(~ambisonicsBus, sig);
+	Out.ar(out, sig);
 
 }).add;
 )
@@ -148,13 +144,13 @@ SynthDef.new(\windGenerator, {
 (
 SynthDef(\echoGenerator, {
 
-	| delay_time = 2 |
+	| in, out, delay_time = 2 |
 	var effect, sig;
 
-	sig = In.ar(~beachEcho);
+	sig = In.ar(in);
 	effect = Greyhole.ar(sig, delay_time, 0.1, 0.2, 0.8, feedback: 0.3);
 
-	Out.ar(~ambisonicsBus, effect);
+	Out.ar(out, effect);
 
 }).add;
 )
@@ -162,12 +158,13 @@ SynthDef(\echoGenerator, {
 (
 SynthDef(\reverbGenerator, {
 
+	| in, out |
 	var effect, sig;
 
-	sig = In.ar(~beachReverb);
+	sig = In.ar(in);
 	effect = FreeVerb.ar(sig, 0.33, 0.8, 0.3, 0.25);
 
-	Out.ar(~beachEcho, effect);
+	Out.ar(out, effect);
 
 }).add;
 )
@@ -175,19 +172,101 @@ SynthDef(\reverbGenerator, {
 (
 SynthDef(\complexReverbGenerator, {
 
-	| ratio = 0.75 |
+	| in, out, ratio = 0.75 |
 	var effect, sig;
 
-	sig = In.ar(~beachComplexReverb);
+	sig = In.ar(in);
 	effect = JPverb.ar(sig, 5, 0, 1, 0, 0);
 	effect = (sig * ratio) + (effect * (1 - ratio));
 	effect = effect * 0.5;
 
-	Out.ar(~ambisonicsBus, effect);
+	Out.ar(out, effect);
 
 }).add;
 )
 
+
+/************************************************************
+ *
+ *   ___ _ __   __ _  ___ ___
+ *  / __| '_ \ / _` |/ __/ _ \
+ *  \__ \ |_) | (_| | (_|  __/
+ *  |___/ .__/ \__,_|\___\___|
+ *      |_|
+ *
+ ************************************************************/
+
+(
+SynthDef(\bubbleSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in, 2);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
+	// Transform
+	sig = FoaZoom.ar(sig, pi/4, pi, 0);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\gullSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in, 2);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
+	// Transform
+	sig = FoaZoom.ar(sig, pi/4, 0, pi/2);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\waveSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in, 2);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
+	// Transform
+	sig = FoaZoom.ar(sig, pi/3, pi, 0);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\windSpace, {
+
+	| in, out |
+	var sig;
+
+	sig = In.ar(in);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, 0, 0, 0);
+
+	Out.ar(out, sig);
+
+}).add;
+)
 
 /****************************
  *   ___  ___ ___ _ __   ___
@@ -198,19 +277,47 @@ SynthDef(\complexReverbGenerator, {
  ****************************/
 
 (
-var c_fx, e_fx, r_fx,
-    amp_b = 1, amp_g = 1, amp_w = 1,
-    dur_b = 0.5, dur_g = 1.5, dur_w = 3;
+)
+
+(
+ var amp_b = 1, amp_g = 1, amp_w = 1,
+     dur_b = 0.5, dur_g = 1.5, dur_w = 3,
+     bubble_reverb, gull_reverb, gull_echo, wave_reverb,
+     b_am, g_am, w_am;
 
 // Effects
-c_fx = Synth.new(\complexReverbGenerator);
-e_fx = Synth.new(\echoGenerator);
-r_fx = Synth.new(\reverbGenerator);
+bubble_reverb = Synth.new(\complexReverbGenerator, [
+	\in, ~beachBubbleFx,
+	\out, ~beachBubbleAmbi
+]);
+gull_reverb = Synth.new(\reverbGenerator, [
+	\in, ~beachGullFx,
+	\out, ~beachGullAmbi
+]);
+wave_reverb = Synth.new(\reverbGenerator, [
+	\in, ~beachWaveFx,
+	\out, ~beachWaveAmbi
+]);
+
+// Ambisonics Input + Transform
+b_am = Synth.new(\bubbleSpace, [
+	\in, ~beachBubbleAmbi,
+	\out, ~ambisonicsBus
+]);
+g_am = Synth.new(\gullSpace, [
+	\in, ~beachGullAmbi,
+	\out, ~ambisonicsBus
+]);
+w_am = Synth.new(\waveSpace, [
+	\in, ~beachWaveAmbi,
+	\out, ~ambisonicsBus
+]);
 
 // Play the bubbles
-~bubbles = Pbind(*[
+~bubble = Pbind(*[
 
 	\instrument, \bubbleGenerator,
+	\out, ~beachBubbleFx,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pgauss(Pfuncn({ dur_b }, inf), Pfuncn({ dur_b }, inf) - 0.2),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
@@ -223,9 +330,10 @@ r_fx = Synth.new(\reverbGenerator);
 ]).play;
 
 // Play the sea gulls
-~gulls = Pbind(*[
+~gull = Pbind(*[
 
 	\instrument, \gullGenerator,
+	\out, ~beachGullFx,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pfuncn({ dur_g }, inf),
     \freq, Pkey(\sizefactor).linexp(0, 1, 400, 800),
@@ -237,21 +345,23 @@ r_fx = Synth.new(\reverbGenerator);
 ]).play;
 
 // Play the waves
-~waves = Pbind(*[
+~wave = Pbind(*[
 
 	\instrument, \waveGenerator,
+	\out, ~beachWaveFx,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur, Pgauss(Pfuncn({ dur_w }, inf), Pfuncn({ dur_w }, inf) -1),
 	\amp , Pfuncn({ amp_w }, inf),
 	\decay, Pkey(\sizefactor).linlin(0, 1, 2, 5),
 	\freqfactor, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.9),
-
 	\doneAction, 2
 
 ]).play;
 
 // Play the wind
-~wind = Synth.new(\windGenerator);
+~wind = Synth.new(\windGenerator, [
+	\out, ~windFx
+]);
 
 // Control the volume of the bubbles
 MIDIdef.cc(\amp_b, {
@@ -341,8 +451,7 @@ MIDIdef.cc(\filter_wind, {
 
 // Stop the beach
 (
-~bubbles.stop;
-~gulls.stop;
-~wind.stop;
-~wind.free;
+~bubble.stop;
+~gull.stop;
+~wave.stop;
 )

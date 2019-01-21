@@ -86,7 +86,7 @@ s.meter;
  ************************************************************/
 
 (
-~ambisonicsBus = Bus.audio(s, 8);
+~ambisonicsBus= Bus.audio(s, 4);
 )
 
 (
@@ -95,7 +95,7 @@ SynthDef(\ambiOut, {
 	| out = 0 |
 	var sig;
 
-	sig = In.ar(~ambisonicsBus, 8);
+	sig = In.ar(~ambisonicsBus, 4);
 	sig = FoaDecode.ar(sig, FoaDecoderMatrix.newPeri(8));
 
 	Out.ar(out, sig);
