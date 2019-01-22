@@ -51,6 +51,37 @@
 ~realOwl = Buffer.read(Server.default, "samples/".resolveRelative ++ "owl.wav");
 )
 
+// Define eagle synth
+(
+SynthDef(\eagleGenerator, {
+
+	| out = 0, t_trig = 0, amp = 0.2, dur = 1, doneAction = 2 |
+	var sig = 0, env;
+
+	5.collect({
+
+		arg i;
+		sig = sig * 0.7 + ((Formant.ar(EnvGen.kr(Env([i * 500, i * 750, i * 625], [0.5, 0.5, 0.3])))* 0.2) * i);
+
+	});
+
+	sig = BPF.ar(sig, 1000);
+
+	env = EnvGen.kr(Env.perc(dur/8, dur/12).delay(0.003), t_trig, doneAction: doneAction);
+	sig = sig * env * 0.5;
+	sig = sig * amp;
+
+	// Ambisonics
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, pi, pi/4, pi);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
 // Define river synth
 (
 SynthDef(\riverGenerator, {
@@ -91,37 +122,6 @@ SynthDef(\sheepGenerator, {
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
 	// Transform
 	sig = FoaZoom.ar(sig, pi, pi);
-
-	Out.ar(out, sig);
-
-}).add;
-)
-
-// Define eagle synth
-(
-SynthDef(\eagleGenerator, {
-
-	| out = 0, t_trig = 0, amp = 0.2, dur = 1, doneAction = 2 |
-	var sig = 0, env;
-
-	5.collect({
-
-		arg i;
-		sig = sig * 0.7 + ((Formant.ar(EnvGen.kr(Env([i * 500, i * 750, i * 625], [0.5, 0.5, 0.3])))* 0.2) * i);
-
-	});
-
-	sig = BPF.ar(sig, 1000);
-
-	env = EnvGen.kr(Env.perc(dur/8, dur/12).delay(0.003), t_trig, doneAction: doneAction);
-	sig = sig * env * 0.5;
-	sig = sig * amp;
-
-	// Ambisonics
-	// Encode
-	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	// Transform
-	sig = FoaZoom.ar(sig, pi, pi/4, pi);
 
 	Out.ar(out, sig);
 
@@ -191,7 +191,7 @@ SynthDef(\eagleSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, pi/4, pi, 0);
+	sig = FoaZoom.ar(sig, 0, pi, pi);
 
 	Out.ar(out, sig);
 
@@ -246,38 +246,89 @@ SynthDef(\sheepSpace, {
 (
 var amp_e = 0.1, amp_s = 1,
     dur_e = 4, dur_s = 1,
-    e_am, r_am, s_am,
-    eagle_echo, river_reverb, sheep_reverb;
+    eagleAmbi, riverAmbi, sheepAmbi,
+    eagleEcho, riverReverb, sheepReverb;
 
 // Effects
-eagle_echo = Synth.new(\mountainEchoGenerator, [
+eagleEcho = Synth.new(\mountainEchoGenerator, [
 	\in, ~moutainEagleFx,
 	\out, ~moutainEagleAmbi
 ]);
 
-river_reverb = Synth.new(\mountainReverbGenerator, [
+riverReverb = Synth.new(\mountainReverbGenerator, [
 	\in, ~moutainRiverFx,
 	\out, ~mountainRiverAmbi
 ]);
 
-sheep_reverb = Synth.new(\mountainReverbGenerator, [
+sheepReverb = Synth.new(\mountainReverbGenerator, [
 	\in, ~moutainSheepFx,
 	\out, ~moutainSheepAmbi
 ]);
 
 // Ambisonics Input + Transform
-e_am = Synth.new(\eagleSpace, [
+eagleAmbi = Synth.new(\eagleSpace, [
 	\in, ~moutainEagleAmbi,
 	\out, ~ambisonicsBus
 ]);
-r_am = Synth.new(\riverSpace, [
+riverAmbi = Synth.new(\riverSpace, [
 	\in, ~moutainRiverAmbi,
 	\out, ~ambisonicsBus
 ]);
-s_am = Synth.new(\sheepSpace, [
+sheepAmbi = Synth.new(\sheepSpace, [
 	\in, ~moutainSheepAmbi,
 	\out, ~ambisonicsBus
 ]);
+
+// Control the volume of the eagles
+MIDIdef.cc(\ampEagle, {
+
+	| val, num, chan, src |
+
+	[val, num].postln;
+	amp_e = val.linlin(0, 127, 0, 1);
+
+}, 0);
+
+MIDIdef.cc(\ampRiver, {
+
+	| val, num, chan, src |
+	var amp_r;
+
+	[val, num].postln;
+	amp_r = val.linlin(0 ,127, 0, 1);
+	~river.set(\amp, amp_r);
+
+}, 1);
+
+// Control the volume of the sheep
+MIDIdef.cc(\ampSheep, {
+
+	| val, num, chan, src |
+
+	[val, num].postln;
+	amp_s = val.linlin(0, 127, 0, 1);
+
+}, 2);
+
+// Control the duration of the eagles
+MIDIdef.cc(\durEagle, {
+
+	|val, num, chan, src|
+
+	[val, num].postln;
+	dur_e = val.linlin(0, 127, 0.5, 1.5);
+
+}, 16);
+
+// Control the duration of the sheep
+MIDIdef.cc(\durSheep, {
+
+	|val, num, chan, src|
+
+	[val, num].postln;
+	dur_s = val.linlin(0, 127, 2, 6);
+
+}, 18);
 
 // Play the river
 ~river = Synth.new(\riverGenerator, [
@@ -307,57 +358,6 @@ s_am = Synth.new(\sheepSpace, [
 	\doneAction, 2
 
 ]).play;
-
-// Control the volume of the eagles
-MIDIdef.cc(\amp_e, {
-
-	| val, num, chan, src |
-
-	[val, num].postln;
-	amp_e = val.linlin(0, 127, 0, 1);
-
-}, 0);
-
-MIDIdef.cc(\amp_r, {
-
-	| val, num, chan, src |
-	var amp_r;
-
-	[val, num].postln;
-	amp_r = val.linlin(0 ,127, 0, 1);
-	~river.set(\amp, amp_r);
-
-}, 1);
-
-// Control the volume of the sheep
-MIDIdef.cc(\amp_s, {
-
-	| val, num, chan, src |
-
-	[val, num].postln;
-	amp_s = val.linlin(0, 127, 0, 1);
-
-}, 2);
-
-// Control the duration of the eagles
-MIDIdef.cc(\dur_e, {
-
-	|val, num, chan, src|
-
-	[val, num].postln;
-	dur_e = val.linlin(0, 127, 0.5, 1.5);
-
-}, 16);
-
-// Control the duration of the sheep
-MIDIdef.cc(\dur_s, {
-
-	|val, num, chan, src|
-
-	[val, num].postln;
-	dur_s = val.linlin(0, 127, 2, 6);
-
-}, 18);
 )
 
 // Stop the mountains

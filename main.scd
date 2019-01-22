@@ -63,11 +63,10 @@ FoaXformDisplay.new;
  ************************************************************/
 
 (
-// Increase the server’s allocated memory
 s.options.memSize = 1000000;
 // Increase the number of the server’s input and output busses
-s.options.numInputBusChannels = 0;
-s.options.numOutputBusChannels = 8;
+s.options.numInputBusChannels = 16;
+s.options.numOutputBusChannels = 32;
 // Boot the SuperCollider server
 s.boot;
 // Display server meter
@@ -86,7 +85,7 @@ s.meter;
  ************************************************************/
 
 (
-~ambisonicsBus= Bus.audio(s, 4);
+~ambisonicsBus = Bus.audio(s, 4);
 )
 
 (
