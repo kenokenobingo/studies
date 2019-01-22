@@ -285,40 +285,45 @@ SynthDef(\windSpace, {
  ****************************/
 
 (
-// Effects
-~bubbleReverb = Synth.new(\complexReverbGenerator, [
+var p1, p2, p3,
+    bubbleHall, gullHall, waveHall, windBand,
+    bubbleA, gullA, waveA, windA,
+    amp_b = 1, amp_g = 1, amp_w = 1,
+    dur_b = 1, dur_g = 1, dur_w = 1;
+
+//Effects
+bubbleHall = Synth.new(\complexReverbGenerator, [
 	\in, ~beachBubbleFx,
 	\out, ~beachBubbleAmbi
 ]);
-~gullReverb = Synth.new(\reverbGenerator, [
+gullHall = Synth.new(\reverbGenerator, [
 	\in, ~beachGullFx,
 	\out, ~beachGullAmbi
 ]);
-~waveReverb = Synth.new(\reverbGenerator, [
+waveHall = Synth.new(\reverbGenerator, [
 	\in, ~beachWaveFx,
 	\out, ~beachWaveAmbi
 ]);
-
-~windFilter = Synth.new(\bandpassGenerator, [
+windBand = Synth.new(\bandpassGenerator, [
 	\in, ~windFx,
 	\out, ~windAmbi
 ]);
 
 // Ambisonics Input + Transform
-~bubbleAmbi = Synth.new(\bubbleSpace, [
+bubbleA = Synth.new(\bubbleSpace, [
 	\in, ~beachBubbleAmbi,
 	\out, ~ambisonicsBus
 ]);
-~gullAmbi = Synth.new(\gullSpace, [
+gullA = Synth.new(\gullSpace, [
 	\in, ~beachGullAmbi,
 	\out, ~ambisonicsBus
 ]);
-~waveAmbi = Synth.new(\waveSpace, [
+waveA = Synth.new(\waveSpace, [
 	\in, ~beachWaveAmbi,
 	\out, ~ambisonicsBus
 ]);
 
-~windAmbi = Synth.new(\windSpace, [
+windA = Synth.new(\windSpace, [
 	\in, ~windAmbi,
 	\out, ~ambisonicsBus
 ]);
@@ -328,8 +333,8 @@ MIDIdef.cc(\ampBubble, {
 
 	| val, num, chan, src |
 
-	~amp_b = val.linlin(0, 127, 0, 1);
-	~amp_b.postln;
+	amp_b = val.linlin(0, 127, 0, 1);
+	amp_b.postln;
 
 }, 0);
 
@@ -339,8 +344,8 @@ MIDIdef.cc(\ampGull, {
 	| val, num, chan, src |
 
 	[val, num].postln;
-	~amp_g = val.linlin(0, 127, 0, 1);
-	~amp_g.postln;
+	amp_g = val.linlin(0, 127, 0, 1);
+	amp_g.postln;
 
 }, 1);
 
@@ -350,8 +355,8 @@ MIDIdef.cc(\ampWave, {
 	| val, num, chan, src |
 
 	[val, num].postln;
-    ~amp_w = val.linlin(0, 127, 0, 1);
-	~amp_w.postln;
+    amp_w = val.linlin(0, 127, 0, 1);
+	amp_w.postln;
 
 }, 2);
 
@@ -372,7 +377,7 @@ MIDIdef.cc(\durBubble, {
 	| val, num, chan, src |
 
 	[val, num].postln;
-	~dur_b = val.linlin(0, 127, 0.3, 0.5);
+	dur_b = val.linlin(0, 127, 0.3, 0.5);
 
 }, 16);
 
@@ -382,7 +387,7 @@ MIDIdef.cc(\durGull, {
 	| val, num, chan, src |
 
 	[val, num].postln;
-	~dur_g = val.linlin(0, 127, 0.5, 3);
+	dur_g = val.linlin(0, 127, 0.5, 3);
 
 }, 17);
 
@@ -392,7 +397,7 @@ MIDIdef.cc(\durWave, {
 	| val, num, chan, src |
 
 	[val, num].postln;
-	~dur_w = val.linlin(0, 127, 2, 8);
+	dur_w = val.linlin(0, 127, 2, 8);
 
 }, 18);
 
@@ -414,9 +419,9 @@ MIDIdef.cc(\filterWind, {
 	\instrument, \bubbleGenerator,
 	\out, ~beachBubbleFx,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\dur , Pgauss(Pfuncn({ ~dur_b }, inf), Pfuncn({ ~dur_b }, inf) - 0.2),
+	\dur , Pgauss(Pfuncn({ dur_b }, inf), Pfuncn({ dur_b }, inf) - 0.2),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
-	\amp, Pfuncn({ ~amp_b }, inf),
+	\amp, Pfuncn({ amp_b }, inf),
 	\decay, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.08),
 	\pitchcurvelen, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.2),
 	\doneAction, 2
@@ -429,9 +434,9 @@ MIDIdef.cc(\filterWind, {
 	\instrument, \gullGenerator,
 	\out, ~beachGullFx,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\dur , Pfuncn({ ~dur_g }, inf),
+	\dur , Pfuncn({ dur_g }, inf),
     \freq, Pkey(\sizefactor).linexp(0, 1, 400, 800),
-	\amp, Pfuncn({ ~amp_g }, inf),
+	\amp, Pfuncn({ amp_g }, inf),
     \attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.8),
     \decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.8),
 	\doneAction, 2
@@ -444,8 +449,8 @@ MIDIdef.cc(\filterWind, {
 	\instrument, \waveGenerator,
 	\out, ~beachWaveFx,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\dur, Pgauss(Pfuncn({ ~dur_w }, inf), Pfuncn({ ~dur_w }, inf) -1),
-	\amp , Pfuncn({ ~amp_w }, inf),
+	\dur, Pgauss(Pfuncn({ dur_w }, inf), Pfuncn({ dur_w }, inf) -1),
+	\amp , Pfuncn({ amp_w }, inf),
 	\decay, Pkey(\sizefactor).linlin(0, 1, 2, 5),
 	\freqfactor, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.9),
 	\doneAction, 2

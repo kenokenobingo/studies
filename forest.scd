@@ -411,8 +411,7 @@ SynthDef(\peckerSpace, {
  ****************************/
 
 (
-var p1, p2, p3,
-    owlHall, realOwlHall,
+var owlHall, realOwlHall,
     duckAmbi, frogAmbi, owlAmbi, realDuckAmbi, realOwlAmbi, peckerAmbi,
     amp_o = 1, amp_p = 1, amp_r = 1,
     dur_o = 1, dur_p = 1, dur_r = 1;
