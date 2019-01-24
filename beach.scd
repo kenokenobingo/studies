@@ -285,11 +285,29 @@ SynthDef(\windSpace, {
  ****************************/
 
 (
-var p1, p2, p3,
-    bubbleHall, gullHall, waveHall, windBand,
+var bubbleHall, gullHall, waveHall, windBand,
     bubbleA, gullA, waveA, windA,
     amp_b = 1, amp_g = 1, amp_w = 1,
     dur_b = 1, dur_g = 1, dur_w = 1;
+
+// Ambisonics Input + Transform
+bubbleA = Synth.new(\bubbleSpace, [
+	\in, ~beachBubbleAmbi,
+	\out, ~ambisonicsBus
+]);
+gullA = Synth.new(\gullSpace, [
+	\in, ~beachGullAmbi,
+	\out, ~ambisonicsBus
+]);
+waveA = Synth.new(\waveSpace, [
+	\in, ~beachWaveAmbi,
+	\out, ~ambisonicsBus
+]);
+
+windA = Synth.new(\windSpace, [
+	\in, ~windAmbi,
+	\out, ~ambisonicsBus
+]);
 
 //Effects
 bubbleHall = Synth.new(\complexReverbGenerator, [
@@ -309,23 +327,55 @@ windBand = Synth.new(\bandpassGenerator, [
 	\out, ~windAmbi
 ]);
 
-// Ambisonics Input + Transform
-bubbleA = Synth.new(\bubbleSpace, [
-	\in, ~beachBubbleAmbi,
-	\out, ~ambisonicsBus
-]);
-gullA = Synth.new(\gullSpace, [
-	\in, ~beachGullAmbi,
-	\out, ~ambisonicsBus
-]);
-waveA = Synth.new(\waveSpace, [
-	\in, ~beachWaveAmbi,
-	\out, ~ambisonicsBus
-]);
+// Play the bubbles
+~bubble = Pbind(*[
 
-windA = Synth.new(\windSpace, [
-	\in, ~windAmbi,
-	\out, ~ambisonicsBus
+	\instrument, \bubbleGenerator,
+	\out, ~beachBubbleFx,
+	\sizefactor, Pwhite(0.0,1,inf),
+	\dur , Pgauss(Pfuncn({ dur_b }, inf), Pfuncn({ dur_b }, inf) - 0.2),
+	\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
+	\amp, Pfuncn({ amp_b }, inf),
+	\decay, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.08),
+	\pitchcurvelen, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.2),
+	\doneAction, 2
+
+]).play;
+
+// Play the sea gulls
+~gull = Pbind(*[
+
+	\instrument, \gullGenerator,
+	\out, ~beachGullFx,
+	\sizefactor, Pwhite(0.0,1,inf),
+	\dur , Pfuncn({ dur_g }, inf),
+    \freq, Pkey(\sizefactor).linexp(0, 1, 400, 800),
+	\amp, Pfuncn({ amp_g }, inf),
+    \attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.8),
+    \decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.8),
+	\doneAction, 2
+
+]).play;
+
+// Play the waves
+~wave = Pbind(*[
+
+	\instrument, \waveGenerator,
+	\out, ~beachWaveFx,
+	\sizefactor, Pwhite(0.0,1,inf),
+	\dur, Pgauss(Pfuncn({ dur_w }, inf), Pfuncn({ dur_w }, inf) -1),
+	\amp , Pfuncn({ amp_w }, inf),
+	\decay, Pkey(\sizefactor).linlin(0, 1, 2, 5),
+	\freqfactor, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.9),
+	\doneAction, 2
+
+]).play;
+
+// Play the wind
+~wind = Synth.new(\windGenerator, [
+
+	\out, ~windFx
+
 ]);
 
 // Control the volume of the bubbles
@@ -412,57 +462,6 @@ MIDIdef.cc(\filterWind, {
 	~wind.set(\cutoff, filter_wind);
 
 }, 19);
-
-// Play the bubbles
-~bubble = Pbind(*[
-
-	\instrument, \bubbleGenerator,
-	\out, ~beachBubbleFx,
-	\sizefactor, Pwhite(0.0,1,inf),
-	\dur , Pgauss(Pfuncn({ dur_b }, inf), Pfuncn({ dur_b }, inf) - 0.2),
-	\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
-	\amp, Pfuncn({ amp_b }, inf),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.08),
-	\pitchcurvelen, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.2),
-	\doneAction, 2
-
-]).play;
-
-// Play the sea gulls
-~gull = Pbind(*[
-
-	\instrument, \gullGenerator,
-	\out, ~beachGullFx,
-	\sizefactor, Pwhite(0.0,1,inf),
-	\dur , Pfuncn({ dur_g }, inf),
-    \freq, Pkey(\sizefactor).linexp(0, 1, 400, 800),
-	\amp, Pfuncn({ amp_g }, inf),
-    \attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.8),
-    \decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.8),
-	\doneAction, 2
-
-]).play;
-
-// Play the waves
-~wave = Pbind(*[
-
-	\instrument, \waveGenerator,
-	\out, ~beachWaveFx,
-	\sizefactor, Pwhite(0.0,1,inf),
-	\dur, Pgauss(Pfuncn({ dur_w }, inf), Pfuncn({ dur_w }, inf) -1),
-	\amp , Pfuncn({ amp_w }, inf),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 2, 5),
-	\freqfactor, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.9),
-	\doneAction, 2
-
-]).play;
-
-// Play the wind
-~wind = Synth.new(\windGenerator, [
-
-	\out, ~windFx
-
-]);
 )
 
 // Stop the beach

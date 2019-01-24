@@ -25,14 +25,14 @@
 
 (
 // Effects In
-~moutainEagleFx = Bus.audio(s, 1);
+~mountainEagleFx = Bus.audio(s, 1);
 ~mountainRiverFx = Bus.audio(s, 1);
 ~mountainSheepFx = Bus.audio(s, 1);
 
 // Ambisonics Encode + Transform In
-~mountainsRiverAmbi = Bus.audio(s, 1);
-~moutainsSheepAmbi = Bus.audio(s, 1);
-~moutainsEagleAmbi = Bus.audio(s, 2);
+~mountainRiverAmbi = Bus.audio(s, 1);
+~mountainSheepAmbi = Bus.audio(s, 1);
+~mountainEagleAmbi = Bus.audio(s, 2);
 )
 
 
@@ -60,7 +60,7 @@ SynthDef(\eagleGenerator, {
 
 	5.collect({
 
-		arg i;
+		| i |
 		sig = sig * 0.7 + ((Formant.ar(EnvGen.kr(Env([i * 500, i * 750, i * 625], [0.5, 0.5, 0.3])))* 0.2) * i);
 
 	});
@@ -70,12 +70,6 @@ SynthDef(\eagleGenerator, {
 	env = EnvGen.kr(Env.perc(dur/8, dur/12).delay(0.003), t_trig, doneAction: doneAction);
 	sig = sig * env * 0.5;
 	sig = sig * amp;
-
-	// Ambisonics
-	// Encode
-	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	// Transform
-	sig = FoaZoom.ar(sig, pi, pi/4, pi);
 
 	Out.ar(out, sig);
 
@@ -107,21 +101,11 @@ SynthDef(\sheepGenerator, {
 
 	env = EnvGen.kr(Env.perc(dur/2, dur/2).delay(0.003), t_trig, doneAction: doneAction);
 
-	sig = 5.collect({
-		arg i;
-
-		sig = sig + Formant.ar(i * 125, XLine.ar(125, 200, 0.5), XLine.ar(125, 200, 0.5), mul: XLine.ar(1, 0.1, 0.5)) + Formant.ar(Vibrato.ar(DC.ar(i * 125), XLine.ar(10, 20, 1), XLine.ar(0.02, 0.1, 1)), XLine.ar(700, 1500, 0, 1), 2500, mul: XLine.ar(0.1, 1, 0.5)) * (1/(i+1));
-	});
+	sig = sig + Formant.ar(125, XLine.ar(125, 200, 0.5), XLine.ar(125, 200, 0.5), mul: XLine.ar(1, 0.1, 0.5)) + Formant.ar(Vibrato.ar(DC.ar(125), XLine.ar(10, 20, 1), XLine.ar(0.02, 0.1, 1)), XLine.ar(700, 1500, 0, 1), 2500, mul: XLine.ar(0.1, 1, 0.5));
 
 	sig = BPF.ar(sig, 750, 0.9);
 	sig = sig * env;
 	sig = amp * sig;
-
-	// Ambisonics
-	// Encode
-	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
-	// Transform
-	sig = FoaZoom.ar(sig, pi, pi);
 
 	Out.ar(out, sig);
 
@@ -191,7 +175,7 @@ SynthDef(\eagleSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, 0, pi, pi);
+	sig = FoaZoom.ar(sig, 0, 0, 0);
 
 	Out.ar(out, sig);
 
@@ -244,39 +228,39 @@ SynthDef(\sheepSpace, {
  ****************************/
 
 (
-var amp_e = 0.1, amp_s = 1,
+var amp_e = 0.1, amp_s = 1, amp_r = 1,
     dur_e = 4, dur_s = 1,
     eagleAmbi, riverAmbi, sheepAmbi,
     eagleEcho, riverReverb, sheepReverb;
 
-// Effects
-eagleEcho = Synth.new(\mountainEchoGenerator, [
-	\in, ~moutainEagleFx,
-	\out, ~moutainEagleAmbi
-]);
-
-riverReverb = Synth.new(\mountainReverbGenerator, [
-	\in, ~moutainRiverFx,
-	\out, ~mountainRiverAmbi
-]);
-
-sheepReverb = Synth.new(\mountainReverbGenerator, [
-	\in, ~moutainSheepFx,
-	\out, ~moutainSheepAmbi
-]);
-
 // Ambisonics Input + Transform
 eagleAmbi = Synth.new(\eagleSpace, [
-	\in, ~moutainEagleAmbi,
+	\in, ~mountainEagleAmbi,
 	\out, ~ambisonicsBus
 ]);
 riverAmbi = Synth.new(\riverSpace, [
-	\in, ~moutainRiverAmbi,
+	\in, ~mountainRiverAmbi,
 	\out, ~ambisonicsBus
 ]);
 sheepAmbi = Synth.new(\sheepSpace, [
-	\in, ~moutainSheepAmbi,
+	\in, ~mountainSheepAmbi,
 	\out, ~ambisonicsBus
+]);
+
+// Effects
+eagleEcho = Synth.new(\mountainEchoGenerator, [
+	\in, ~mountainEagleFx,
+	\out, ~mountainEagleAmbi
+]);
+
+sheepReverb = Synth.new(\mountainReverbGenerator, [
+	\in, ~mountainSheepFx,
+	\out, ~mountainSheepAmbi
+]);
+
+riverReverb = Synth.new(\mountainReverbGenerator, [
+	\in, ~mountainRiverFx,
+	\out, ~mountainRiverAmbi
 ]);
 
 // Control the volume of the eagles
@@ -332,14 +316,14 @@ MIDIdef.cc(\durSheep, {
 
 // Play the river
 ~river = Synth.new(\riverGenerator, [
-	\out, ~moutainRiverFx
+	\out, ~mountainRiverFx
 ]);
 
 // Play the eagle
 ~eagle = Pbind(*[
 
 	\instrument, \eagleGenerator,
-	\out, ~moutainEagleFx,
+	\out, ~mountainEagleFx,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\dur , Pgauss(Pfuncn({ dur_e }, inf), Pfuncn({ dur_e }, inf) - 0.1),
     \amp, Pfuncn({ amp_e }, inf),
@@ -352,7 +336,7 @@ MIDIdef.cc(\durSheep, {
 
 	\instrument, \sheepGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\out, ~moutainSheepFx,
+	\out, ~mountainSheepFx,
 	\dur , Pgauss(Pfuncn({ dur_s }, inf), Pfuncn({ dur_s }, inf) - 0.25),
     \amp, Pfuncn({ amp_s }, inf),
 	\doneAction, 2
