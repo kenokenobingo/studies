@@ -76,13 +76,13 @@ SynthDef.new(\gullGenerator, {
 	lfo = XLine.ar(3, 30);
 
 	vibrato = Vibrato.ar(100, 6, 0.8);
-	env = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: doneAction) * amp;
+	env = EnvGen.ar(Env.perc(Rand(attack - 0.2, attack), Rand(decay - 0.1, decay)), t_trig, doneAction: doneAction) * amp;
 
 	// Resonant filter
-	sig = Formant.ar(XLine.kr(freq, 600, 0.5), XLine.kr(3000, 1400, 0.5), XLine.kr(freq * 2, 700, 0.5), mul: 0.6) + Formant.ar(XLine.kr(freq / 2, 150, 0.5), 805, 880, mul: 0.25) + Saw.ar(XLine.ar(freq / 2, 300, 0.5), mul: XLine.kr(0.2, 0, 0.2));
+	sig = Formant.ar(XLine.kr(freq, 600, 0.5), XLine.kr(3000, 1400, 0.5), XLine.kr(freq * 2, 700, 0.5), mul: 0.6) + Formant.ar(XLine.kr(freq * 2, 150, 0.5), 805, 880, mul: 0.25) + Saw.ar(XLine.ar(freq / 2, 300, 0.5), mul: XLine.kr(0.2, 0, 0.2));
 
 	// Apply LFO and envelope
-	sig = 0.1 * env * sig;
+	sig = 0.3 * env * sig;
 
 	Out.ar(out, sig);
 
@@ -93,7 +93,7 @@ SynthDef.new(\gullGenerator, {
 (
 SynthDef.new(\waveGenerator, {
 
-	| out = 0, t_trig = 0, attack = 3, decay = 2, amp = 0.5, freqfactor = 0.75, doneAction = 2 |
+	| out = 0, t_trig = 0, attack = 3, decay = 2, amp = 0.8, freqfactor = 0.75, doneAction = 2 |
 	var sig, env;
 
 	env = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: doneAction);
@@ -172,9 +172,9 @@ SynthDef(\complexReverbGenerator, {
 	var effect, sig;
 
 	sig = In.ar(in);
-	effect = JPverb.ar(sig, 5, 0, 1, 0, 0);
+	effect = JPverb.ar(sig, 5, 0.5, 1, 0, 0);
 	effect = (sig * ratio) + (effect * (1 - ratio));
-	effect = effect * 0.5;
+	effect = effect * 0.3;
 
 	Out.ar(out, effect);
 
@@ -233,7 +233,7 @@ SynthDef(\gullSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, pi/4, 0, pi/2);
+	sig = FoaZoom.ar(sig, pi/4, 0, pi);
 
 	Out.ar(out, sig);
 

@@ -61,7 +61,7 @@ SynthDef(\eagleGenerator, {
 	5.collect({
 
 		| i |
-		sig = sig * 0.7 + ((Formant.ar(EnvGen.kr(Env([i * 500, i * 750, i * 625], [0.5, 0.5, 0.3])))* 0.2) * i);
+		sig = sig * 0.7 + ((Formant.ar(EnvGen.kr(Env([i * Rand(500, 700), i * Rand(750, 800), i * Rand(550, 625)], [0.5, 0.5, 0.3])))* 0.2) * i);
 
 	});
 
@@ -101,9 +101,9 @@ SynthDef(\sheepGenerator, {
 
 	env = EnvGen.kr(Env.perc(dur/2, dur/2).delay(0.003), t_trig, doneAction: doneAction);
 
-	sig = sig + Formant.ar(125, XLine.ar(125, 200, 0.5), XLine.ar(125, 200, 0.5), mul: XLine.ar(1, 0.1, 0.5)) + Formant.ar(Vibrato.ar(DC.ar(125), XLine.ar(10, 20, 1), XLine.ar(0.02, 0.1, 1)), XLine.ar(700, 1500, 0, 1), 2500, mul: XLine.ar(0.1, 1, 0.5));
+	sig = Formant.ar(125, XLine.ar(125, 200, 0.5), XLine.ar(125, 200, 0.5), mul: XLine.ar(1, 0.1, 0.5)) + Formant.ar(Vibrato.ar(DC.ar(125), XLine.ar(10, 20, 1), XLine.ar(0.02, 0.1, 1)), XLine.ar(700, 1500, 0, 1), 2500, mul: XLine.ar(0.1, 1, 0.5));
 
-	sig = BPF.ar(sig, 750, 0.9);
+	sig = BPF.ar(sig, 800, 0.9);
 	sig = sig * env;
 	sig = amp * sig;
 

@@ -194,7 +194,7 @@ SynthDef(\frogSynth, {
 (
 SynthDef(\duckSynth, {
 
-	| out = 0, amp = 1, rateL = 1, rateR = 2, freq = 1, feedback = 90, mul = 1 , lpfreq = 1900 |
+	| out = 0, amp = 1, rateL = 1, rateR = 2, freq = 0.5, feedback = 90, mul = 1 , lpfreq = 100 |
 	var sig;
 
 	sig = FreeVerb.ar(
@@ -226,16 +226,27 @@ SynthDef(\duckSynth, {
 
 // Define effect consisting of reverb and echo
 (
+SynthDef(\forestReverbGenerator, {
+
+	| in, out |
+	var effect, sig;
+
+	sig = In.ar(in);
+	effect = FreeVerb.ar(sig, 0.3, 0.5, 0.8);
+
+	Out.ar(out, effect);
+}).add;
+)
+
+(
 SynthDef(\hallGenerator, {
 
 	| in, out |
 	var effect, sig;
 
 	sig = In.ar(in);
-	sig = sig;
 	effect = FreeVerb.ar(sig, 0.3, 0.5, 0.8);
 	effect = Greyhole.ar(effect, 2, 0.2, diff: 0.8, feedback: 0.4);
-	effect = effect;
 
 	Out.ar(out, effect);
 
@@ -317,7 +328,7 @@ SynthDef(\owlSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, pi/3, pi, 0);
+	sig = FoaZoom.ar(sig, pi/3, pi, pi);
 
 	Out.ar(out, sig);
 
@@ -388,7 +399,7 @@ SynthDef(\peckerSpace, {
  ****************************/
 
 (
-var cricketHall, owlHall, realOwlHall,
+var cricketHall, duckHall, frogHall, owlHall, realDuckHall, realOwlHall, peckerHall,
     cricketAmbi, duckAmbi, frogAmbi, owlAmbi, realDuckAmbi, realOwlAmbi, peckerAmbi,
     amp_o = 1, amp_p = 1, amp_r = 1,
     dur_o = 1, dur_p = 1, dur_r = 1;
@@ -424,11 +435,18 @@ peckerAmbi = Synth.new(\peckerSpace, [
 ]);
 
 // Effects
-cricketHall = Synth.new(\hallGenerator, [
+cricketHall = Synth.new(\forestReverbGenerator, [
 	\in, ~forestCricketFx,
 	\out, ~forestCricketAmbi
 ]);
-
+duckHall = Synth.new(\forestReverbGenerator, [
+	\in, ~forestDuckFx,
+	\out, ~forestDuckAmbi
+]);
+frogHall = Synth.new(\forestReverbGenerator, [
+	\in, ~forestFrogFx,
+	\out, ~forestFrogAmbi
+]);
 owlHall = Synth.new(\hallGenerator, [
 	\in, ~forestOwlFx,
 	\out, ~forestOwlAmbi
@@ -437,6 +455,9 @@ owlHall = Synth.new(\hallGenerator, [
 realOwlHall = Synth.new(\hallGenerator, [
 	\in, ~forestRealOwlFx,
 	\out, ~forestRealOwlAmbi
+]);
+peckerHall = Synth.new(\forestReverbGenerator, [
+
 ]);
 
 // Trigger real owl by playing MIDI note
