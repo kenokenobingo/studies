@@ -96,7 +96,7 @@ SynthDef(\ambiOut, {
 	var sig;
 
 	sig = In.ar(~ambisonicsBus, 4);
-	sig = FoaDecode.ar(sig, FoaDecoderMatrix.newPeri(8));
+	sig = FoaDecode.ar(sig, FoaDecoderMatrix.newPanto(8));
 
 	Out.ar(out, sig);
 

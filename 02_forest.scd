@@ -70,9 +70,10 @@ SynthDef(\woodpeckerGenerator, {
 
     sig = SinOsc.ar(Env([1000, 20, 20], [dur * 0.015, dur * 0.01], \lin).ar * [-0.1, 0, 0.1].midiratio);
     sig = BPeakEQ.ar(sig, XLine.kr(1000, 100, 0.1), 1.0, 10);
-    sig = HPF.ar(sig, 800, 0.7);
+    sig = HPF.ar(sig, 500);
+	sig = LPF.ar(sig, 800);
 	sig = sig * env;
-	sig = sig * 10;
+	sig = sig * 5;
 
     Out.ar(out, sig);
 }).add;
@@ -232,7 +233,20 @@ SynthDef(\forestReverbGenerator, {
 	var effect, sig;
 
 	sig = In.ar(in);
-	effect = FreeVerb.ar(sig, 0.3, 0.5, 0.8);
+	effect = FreeVerb.ar(sig, 0.3, 0.2, 0.1);
+
+	Out.ar(out, effect);
+}).add;
+)
+
+(
+SynthDef(\peckerReverbGenerator, {
+
+	| in, out |
+	var effect, sig;
+
+	sig = In.ar(in);
+	effect = FreeVerb.ar(sig, 0.1, 0.01, 0.1);
 
 	Out.ar(out, effect);
 }).add;
@@ -284,7 +298,7 @@ SynthDef(\cricketSpace, {
 (
 SynthDef(\duckSpace, {
 
-	| in, out |
+	| in, out, spread = 0, range = 0, elevation = 0 |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -292,7 +306,7 @@ SynthDef(\duckSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, 0, 0, 0);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
 
@@ -302,7 +316,7 @@ SynthDef(\duckSpace, {
 (
 SynthDef(\frogSpace, {
 
-	| in, out |
+	| in, out, spread = 0, range = 0, elevation = 0 |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -310,7 +324,7 @@ SynthDef(\frogSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, 0, 0, 0);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
 
@@ -320,7 +334,7 @@ SynthDef(\frogSpace, {
 (
 SynthDef(\owlSpace, {
 
-	| in, out |
+	| in, out, range = 0, spread = pi, elevation = pi |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -328,7 +342,7 @@ SynthDef(\owlSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, pi/3, pi, pi);
+	sig = FoaZoom.ar(sig, range, spread, elevation);
 
 	Out.ar(out, sig);
 
@@ -338,7 +352,7 @@ SynthDef(\owlSpace, {
 (
 SynthDef(\realDuckSpace, {
 
-	| in, out |
+	| in, out, spread = 0, range = 0, elevation = 0 |
 	var sig;
 
 	sig = In.ar(in);
@@ -346,7 +360,7 @@ SynthDef(\realDuckSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
 	// Transform
-	sig = FoaZoom.ar(sig, 0, 0, 0);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
 
@@ -356,7 +370,7 @@ SynthDef(\realDuckSpace, {
 (
 SynthDef(\realOwlSpace, {
 
-	| in, out |
+	| in, out, spread = 0, range = pi, elevation = pi |
 	var sig;
 
 	sig = In.ar(in);
@@ -364,7 +378,7 @@ SynthDef(\realOwlSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
 	// Transform
-	sig = FoaZoom.ar(sig, 0, 0, 0);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
 
@@ -374,7 +388,7 @@ SynthDef(\realOwlSpace, {
 (
 SynthDef(\peckerSpace, {
 
-	| in, out |
+	| in, out, spread = 0, range = 0, elevation = pi |
 	var sig;
 
 	sig = In.ar(in);
@@ -382,7 +396,7 @@ SynthDef(\peckerSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
 	// Transform
-	sig = FoaZoom.ar(sig, 0, 0, 0);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
 
@@ -399,66 +413,229 @@ SynthDef(\peckerSpace, {
  ****************************/
 
 (
-var cricketHall, duckHall, frogHall, owlHall, realDuckHall, realOwlHall, peckerHall,
-    cricketAmbi, duckAmbi, frogAmbi, owlAmbi, realDuckAmbi, realOwlAmbi, peckerAmbi,
-    amp_o = 1, amp_p = 1, amp_r = 1,
-    dur_o = 1, dur_p = 1, dur_r = 1;
+var ampOwl = 1, ampPecker = 1, ampRain = 1,
+    durOwl = 1, durPecker = 1, durRain = 1;
 
 // Ambisonics Input + Transform
-cricketAmbi = Synth.new(\cricketSpace, [
+~cricketAmbi = Synth.new(\cricketSpace, [
 	\in, ~forestCricketAmbi,
 	\out, ~ambisonicsBus
 ]);
-duckAmbi = Synth.new(\duckSpace, [
+~duckAmbi = Synth.new(\duckSpace, [
 	\in, ~forestDuckAmbi,
 	\out, ~ambisonicsBus
 ]);
-frogAmbi = Synth.new(\frogSpace, [
+~frogAmbi = Synth.new(\frogSpace, [
 	\in, ~forestFrogAmbi,
 	\out, ~ambisonicsBus
 ]);
-owlAmbi = Synth.new(\owlSpace, [
+~owlAmbi = Synth.new(\owlSpace, [
 	\in, ~forestOwlAmbi,
 	\out, ~ambisonicsBus
 ]);
-realDuckAmbi = Synth.new(\realDuckSpace, [
+~realDuckAmbi = Synth.new(\realDuckSpace, [
 	\in, ~forestRealDuckAmbi,
 	\out, ~ambisonicsBus
 ]);
-realOwlAmbi = Synth.new(\realOwlSpace, [
+~realOwlAmbi = Synth.new(\realOwlSpace, [
 	\in, ~forestRealOwlAmbi,
 	\out, ~ambisonicsBus
 ]);
-peckerAmbi = Synth.new(\peckerSpace, [
+~peckerAmbi = Synth.new(\peckerSpace, [
 	\in, ~forestPeckerAmbi,
 	\out, ~ambisonicsBus
 ]);
 
 // Effects
-cricketHall = Synth.new(\forestReverbGenerator, [
+~cricketHall = Synth.new(\peckerReverbGenerator, [
 	\in, ~forestCricketFx,
 	\out, ~forestCricketAmbi
 ]);
-duckHall = Synth.new(\forestReverbGenerator, [
+~duckHall = Synth.new(\forestReverbGenerator, [
 	\in, ~forestDuckFx,
 	\out, ~forestDuckAmbi
 ]);
-frogHall = Synth.new(\forestReverbGenerator, [
+~frogHall = Synth.new(\forestReverbGenerator, [
 	\in, ~forestFrogFx,
 	\out, ~forestFrogAmbi
 ]);
-owlHall = Synth.new(\hallGenerator, [
+~owlHall = Synth.new(\hallGenerator, [
 	\in, ~forestOwlFx,
 	\out, ~forestOwlAmbi
 ]);
-
-realOwlHall = Synth.new(\hallGenerator, [
+~realOwlHall = Synth.new(\hallGenerator, [
 	\in, ~forestRealOwlFx,
 	\out, ~forestRealOwlAmbi
 ]);
-peckerHall = Synth.new(\forestReverbGenerator, [
-
+~peckerHall = Synth.new(\forestReverbGenerator, [
+	\in, ~forestRealOwlFx,
+	\out, ~forestRealOwlAmbi
 ]);
+
+// Control the volume of the crickets
+MIDIdef.cc(\ampCricket, {
+
+	| val, num, chan, src |
+	var amp;
+
+	[val, num].postln;
+	amp = val.linlin(0, 127, 0, 4);
+	~crickets.set(\amp, amp);
+
+}, 16);
+
+// Control the duration of the crickets
+MIDIdef.cc(\durCricket, {
+
+	| val, num, chan, src |
+	var dur;
+
+	[val, num].postln;
+	dur = val.linlin(0, 127, 0.25, 1.25);
+	~crickets.set(\dur, dur);
+
+}, 24);
+
+// Control the volume of the ducks
+MIDIdef.cc(\ampDuck, {
+
+	| val, num, chan, src |
+	var amp;
+
+	[val, num].postln;
+	amp = val.linlin(0, 127, 0, 4);
+	~ducks.set(\amp, amp);
+
+}, 17);
+
+/* MIDI CONTROLS */
+
+// Control the volume of the ducks
+MIDIdef.cc(\durDuck, {
+
+	| val, num, chan, src |
+	var amp;
+
+	[val, num].postln;
+	amp = val.linlin(0, 127, 0, 4);
+	~ducks.set(\amp, amp);
+
+}, 25);
+
+// Control the volume of the frogs
+MIDIdef.cc(\ampFrog, {
+
+	| val, num, chan, src |
+	var amp;
+
+	[val, num].postln;
+	amp = val.linlin(0, 127, 0, 4);
+	~frogs.set(\amp, amp);
+
+}, 18);
+
+// Control the volume of the frogs
+MIDIdef.cc(\ampFrog, {
+
+	| val, num, chan, src |
+	var dur;
+
+	[val, num].postln;
+	dur = val.linlin(0, 127, 0, 4);
+	~frogs.set(\dur, dur);
+
+}, 26);
+
+// Control the volume of the owls
+MIDIdef.cc(\ampOwl, {
+
+	| val, num, chan, src |
+
+	[val, num].postln;
+	ampOwl = val.linlin(0, 127, 0, 1);
+	ampOwl.postln;
+
+}, 19);
+
+// Control the duration of the owls
+MIDIdef.cc(\durOwl, {
+
+	| val, num, chan, src |
+
+	[val, num].postln;
+	durOwl = val.linlin(0, 127, 0, 1);
+	durOwl.postln;
+
+}, 27);
+
+MIDIdef.cc(\spreadOwl, {
+
+	| val, num, chan, src |
+	var spread;
+
+	[val, num].postln;
+	spread = val.linlin(0, 127, -pi/2, pi/2);
+	~owlAmbi.set(\spread, spread);
+
+}, 20);
+
+// Control the duration of the owls
+MIDIdef.cc(\rangeOwl, {
+
+	| val, num, chan, src |
+	var range;
+
+	[val, num].postln;
+	range = val.linlin(0, 127, 0, pi);
+	~owlAmbi.set(\range, range);
+
+}, 28);
+
+// Control the volume of the woodpecker
+MIDIdef.cc(\ampPecker, {
+
+	| val, num, chan, src |
+
+	[val, num].postln;
+	ampPecker = val.linlin(0, 127, 0, 1);
+	ampPecker.postln;
+
+}, 21);
+
+// Control the volume of the woodpecker
+MIDIdef.cc(\durPecker, {
+
+	| val, num, chan, src |
+
+	[val, num].postln;
+	durPecker = val.linlin(0, 127, 0, 1);
+	durPecker.postln;
+
+}, 29);
+
+// Control the volume of the rain
+MIDIdef.cc(\ampRain, {
+
+	| val, num, chan, src |
+	var amp;
+
+	[val, num].postln;
+	amp = val.linlin(0, 127, 0, 1);
+	~rain.set(\amp, amp);
+
+}, 23);
+
+// Control the volume of the rain
+MIDIdef.cc(\ampWind, {
+
+	| val, num, chan, src |
+	var amp;
+
+	[val, num].postln;
+	amp = val.linlin(0, 127, 0, 1);
+	~wind.set(\amp, amp);
+
+}, 31);
 
 // Trigger real owl by playing MIDI note
 MIDIdef.noteOn(\triggerRealOwl, {
@@ -480,108 +657,6 @@ MIDIdef.noteOn(\triggerRealDuck, {
 
 }, 37);
 
-
-// Control the volume of the crickets
-MIDIdef.cc(\ampCricket, {
-
-	| val, num, chan, src |
-	var amp_c;
-
-	[val, num].postln;
-	amp_c = val.linlin(0, 127, 0, 4);
-	~crickets.set(\amp, amp_c);
-
-}, 0);
-
-// Control the volume of the ducks
-MIDIdef.cc(\ampDuck, {
-
-	| val, num, chan, src |
-	var amp_d;
-
-	[val, num].postln;
-	amp_d = val.linlin(0, 127, 0, 4);
-	~ducks.set(\amp, amp_d);
-
-}, 1);
-
-// Control the volume of the frogs
-MIDIdef.cc(\ampFrog, {
-
-	| val, num, chan, src |
-	var amp_f;
-
-	[val, num].postln;
-	amp_f = val.linlin(0, 127, 0, 4);
-	~frogs.set(\amp, amp_f);
-
-}, 2);
-
-// Control the volume of the owls
-MIDIdef.cc(\ampOwl, {
-
-	| val, num, chan, src |
-
-	[val, num].postln;
-	amp_o = val.linlin(0, 127, 0, 1);
-	amp_o.postln;
-
-}, 3);
-
-// Control the volume of the woodpecker
-MIDIdef.cc(\ampPecker, {
-
-	| val, num, chan, src |
-
-	[val, num].postln;
-	amp_p = val.linlin(0, 127, 0, 1);
-	amp_p.postln;
-
-}, 4);
-
-// Control the volume of the rain
-MIDIdef.cc(\ampRain, {
-
-	| val, num, chan, src |
-	var amp_r;
-
-	[val, num].postln;
-	amp_r = val.linlin(0, 127, 0, 1);
-	~rain.set(\amp, amp_r);
-
-}, 5);
-
-// Control the duration of the owls
-MIDIdef.cc(\durOwl, {
-
-	| val, num, chan, src |
-
-	[val, num].postln;
-	dur_o = val.linlin(0, 127, 0.5, 1.5);
-
-}, 19);
-
-// Control the duration of the woodpecker
-MIDIdef.cc(\durPecker, {
-
-	| val, num, chan, src |
-
-	[val, num].postln;
-	dur_p = val.linlin(0, 127, 0.25, 1.25);
-
-}, 20);
-
-MIDIdef.cc(\filterRain, {
-
-	| val, num, chan, src |
-	var filter_rain;
-
-	[val, num].postln;
-	filter_rain = val.linlin(0, 127, 20, 1200);
-	~rain.set(\cutoff, filter_rain);
-
-}, 21);
-
 // Play the crickets
 ~cricket = Synth.new(\cricketSynth, [
 	\out, ~forestCricketFx
@@ -602,6 +677,8 @@ MIDIdef.cc(\filterRain, {
 	\out, ~forestRainFx
 ]);
 
+/* -- */
+
 // Play the owl
 ~owl= Pbind(*[
 
@@ -609,8 +686,8 @@ MIDIdef.cc(\filterRain, {
 	\out, ~forestOwlFx,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\delta, 10,
-	\amp , Pfuncn({ amp_o }, inf),
-	\dur, Pfuncn({ dur_o }, inf),
+	\amp , Pfuncn({ ampOwl }, inf),
+	\dur, Pfuncn({ durOwl }, inf),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 200, 300),
 	\decay, Pkey(\sizefactor).linlin(0, 1, 1, 2),
 	\doneAction, 2
@@ -623,8 +700,8 @@ MIDIdef.cc(\filterRain, {
 	\instrument, \woodpeckerGenerator,
 	\out, ~forestPeckerFx,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\amp, Pfuncn({ amp_p }, inf),
-	\dur, Pgauss(0.05, 0.05, inf),
+	\amp, Pfuncn({ ampPecker }, inf),
+	\dur, Pgauss(0.1, 0.5, inf),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 50, 100),
 	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1),
 	\doneAction, 2,

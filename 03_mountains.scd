@@ -47,8 +47,8 @@
 
 // Define buffers
 (
-~realDuck = Buffer.read(Server.default, "samples/".resolveRelative ++ "duck.wav");
-~realOwl = Buffer.read(Server.default, "samples/".resolveRelative ++ "owl.wav");
+~realDuck = Buffer.read(Server.default, "samples/".resolveRelative ++ "eagle.wav");
+~realOwl = Buffer.read(Server.default, "samples/".resolveRelative ++ "sheep.wav");
 )
 
 // Define eagle synth
@@ -112,6 +112,20 @@ SynthDef(\sheepGenerator, {
 }).add;
 )
 
+(
+SynthDef(\bufPlaySynth, {
+
+	| out, amp = 1, buf, doneAction = 2 |
+	var sig;
+
+	sig= PlayBuf.ar(1, buf, doneAction: doneAction);
+	sig = sig * amp;
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
 
 /**********************************
  *        __  __           _
@@ -167,7 +181,7 @@ SynthDef(\mountainReverbGenerator, {
 (
 SynthDef(\eagleSpace, {
 
-	| in, out |
+	| in, out, range = 0, spread = pi |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -175,7 +189,7 @@ SynthDef(\eagleSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, 0, 0, 0);
+	sig = FoaZoom.ar(sig, range, spread, 0);
 
 	Out.ar(out, sig);
 
@@ -185,7 +199,7 @@ SynthDef(\eagleSpace, {
 (
 SynthDef(\riverSpace, {
 
-	| in, out |
+	| in, out, range = 0, spread = pi |
 	var sig;
 
 	sig = In.ar(in);
@@ -228,40 +242,40 @@ SynthDef(\sheepSpace, {
  ****************************/
 
 (
-var amp_e = 0.1, amp_s = 1, amp_r = 1,
-    dur_e = 4, dur_s = 1,
-    eagleAmbi, riverAmbi, sheepAmbi,
-    eagleEcho, riverReverb, sheepReverb;
+var ampEagle = 0.1, ampSheep = 1,
+    durEagle = 4, durSheep = 1;
 
 // Ambisonics Input + Transform
-eagleAmbi = Synth.new(\eagleSpace, [
+~eagleAmbi = Synth.new(\eagleSpace, [
 	\in, ~mountainEagleAmbi,
 	\out, ~ambisonicsBus
 ]);
-riverAmbi = Synth.new(\riverSpace, [
+~riverAmbi = Synth.new(\riverSpace, [
 	\in, ~mountainRiverAmbi,
 	\out, ~ambisonicsBus
 ]);
-sheepAmbi = Synth.new(\sheepSpace, [
+~sheepAmbi = Synth.new(\sheepSpace, [
 	\in, ~mountainSheepAmbi,
 	\out, ~ambisonicsBus
 ]);
 
 // Effects
-eagleEcho = Synth.new(\mountainEchoGenerator, [
+~eagleEcho = Synth.new(\mountainEchoGenerator, [
 	\in, ~mountainEagleFx,
 	\out, ~mountainEagleAmbi
 ]);
 
-sheepReverb = Synth.new(\mountainReverbGenerator, [
+~sheepReverb = Synth.new(\mountainReverbGenerator, [
 	\in, ~mountainSheepFx,
 	\out, ~mountainSheepAmbi
 ]);
 
-riverReverb = Synth.new(\mountainReverbGenerator, [
+~riverReverb = Synth.new(\mountainReverbGenerator, [
 	\in, ~mountainRiverFx,
 	\out, ~mountainRiverAmbi
 ]);
+
+/* MIDI CONTROLS */
 
 // Control the volume of the eagles
 MIDIdef.cc(\ampEagle, {
@@ -269,9 +283,61 @@ MIDIdef.cc(\ampEagle, {
 	| val, num, chan, src |
 
 	[val, num].postln;
-	amp_e = val.linlin(0, 127, 0, 1);
+	ampEagle = val.linlin(0, 127, 0, 1);
 
-}, 0);
+}, 32);
+
+// Control the duration of the eagles
+MIDIdef.cc(\durEagle, {
+
+	|val, num, chan, src|
+
+	[val, num].postln;
+	durEagle = val.linlin(0, 127, 0.5, 1.5);
+
+}, 40);
+
+MIDIdef.cc(\spreadEagle, {
+
+	| val, num, chan, src |
+	var spread;
+
+	[val, num].postln;
+	spread = val.linlin(0, 127, -pi/2, pi/2);
+
+}, 33);
+
+// Control the duration of the eagles
+MIDIdef.cc(\rangeEagle, {
+
+	| val, num, chan, src |
+	var range;
+
+	[val, num].postln;
+	range = val.linlin(0, 127, 0, pi);
+	~eagleAmbi.set(\range, range);
+
+}, 41);
+
+// Control the volume of the sheep
+MIDIdef.cc(\ampSheep, {
+
+	| val, num, chan, src |
+
+	[val, num].postln;
+	ampSheep = val.linlin(0, 127, 0, 1);
+
+}, 34);
+
+// Control the duration of the sheep
+MIDIdef.cc(\durSheep, {
+
+	|val, num, chan, src|
+
+	[val, num].postln;
+	durSheep = val.linlin(0, 127, 2, 6);
+
+}, 42);
 
 MIDIdef.cc(\ampRiver, {
 
@@ -282,37 +348,29 @@ MIDIdef.cc(\ampRiver, {
 	amp_r = val.linlin(0 ,127, 0, 1);
 	~river.set(\amp, amp_r);
 
-}, 1);
+}, 35);
 
-// Control the volume of the sheep
-MIDIdef.cc(\ampSheep, {
+// Trigger real owl by playing MIDI note
+MIDIdef.noteOn(\triggerRealEagle, {
 
-	| val, num, chan, src |
+	| vel, nn, chan, src |
 
-	[val, num].postln;
-	amp_s = val.linlin(0, 127, 0, 1);
+	[vel, nn, chan, src].postln;
+	Synth.new(\bufPlaySynth, [\buf, ~realEagle.bufnum]);
 
-}, 2);
+}, 48);
 
-// Control the duration of the eagles
-MIDIdef.cc(\durEagle, {
+// Triger real duck by playing MIDI note
+MIDIdef.noteOn(\triggerRealSheep, {
 
-	|val, num, chan, src|
+	| vel, nn, chan, src |
 
-	[val, num].postln;
-	dur_e = val.linlin(0, 127, 0.5, 1.5);
+	[vel, nn, chan, src].postln;
+	Synth.new(\bufPlaySynth, [\buf, ~realSheep.bufnum]);
 
-}, 16);
+}, 49);
 
-// Control the duration of the sheep
-MIDIdef.cc(\durSheep, {
-
-	|val, num, chan, src|
-
-	[val, num].postln;
-	dur_s = val.linlin(0, 127, 2, 6);
-
-}, 18);
+/* -- */
 
 // Play the river
 ~river = Synth.new(\riverGenerator, [
@@ -325,8 +383,8 @@ MIDIdef.cc(\durSheep, {
 	\instrument, \eagleGenerator,
 	\out, ~mountainEagleFx,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\dur , Pgauss(Pfuncn({ dur_e }, inf), Pfuncn({ dur_e }, inf) - 0.1),
-    \amp, Pfuncn({ amp_e }, inf),
+	\dur , Pgauss(Pfuncn({ durEagle }, inf), Pfuncn({ durEagle }, inf) - 0.1),
+    \amp, Pfuncn({ ampEagle }, inf),
 	\doneAction, 2
 
 ]).play;
@@ -337,8 +395,8 @@ MIDIdef.cc(\durSheep, {
 	\instrument, \sheepGenerator,
 	\sizefactor, Pwhite(0.0,1,inf),
 	\out, ~mountainSheepFx,
-	\dur , Pgauss(Pfuncn({ dur_s }, inf), Pfuncn({ dur_s }, inf) - 0.25),
-    \amp, Pfuncn({ amp_s }, inf),
+	\dur , Pgauss(Pfuncn({ durSheep }, inf), Pfuncn({ durSheep }, inf) - 0.25),
+    \amp, Pfuncn({ ampSheep }, inf),
 	\doneAction, 2
 
 ]).play;

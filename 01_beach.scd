@@ -47,6 +47,11 @@
  *
  ************************************************************/
 
+// Define buffers
+(
+~realDuck = Buffer.read(Server.default, "samples/".resolveRelative ++ "seagull.wav");
+)
+
 // Define bubble synth
 (
 SynthDef(\bubbleGenerator, {
@@ -120,6 +125,21 @@ SynthDef.new(\windGenerator, {
 	sig = BrownNoise.ar() * LFBrownNoise1.ar(0.5) * LFNoise0.ar(0.25);
 	// Bandpass Filter
 	sig = BRF.ar(sig, cutoff, 0.9);
+	sig = sig * amp;
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+// Define buffer player synth
+(
+SynthDef(\bufPlaySynth, {
+
+	| out, amp = 1, buf, doneAction = 2 |
+	var sig;
+
+	sig= PlayBuf.ar(1, buf, doneAction: doneAction);
 	sig = sig * amp;
 
 	Out.ar(out, sig);
@@ -207,15 +227,16 @@ SynthDef(\bandpassGenerator, {
 (
 SynthDef(\bubbleSpace, {
 
-	| in, out |
+	| in, out, spread = 0, range = 0, elevation = 0 |
 	var sig;
 
 	sig = In.ar(in, 2);
 
 	// Encode
+
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, 2pi, 2pi, 0);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
 
@@ -225,7 +246,7 @@ SynthDef(\bubbleSpace, {
 (
 SynthDef(\gullSpace, {
 
-	| in, out |
+	| in, out, spread = (pi/2), range = pi, elevation = pi |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -233,7 +254,7 @@ SynthDef(\gullSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, pi/4, 0, pi);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
 
@@ -243,7 +264,7 @@ SynthDef(\gullSpace, {
 (
 SynthDef(\waveSpace, {
 
-	| in, out |
+	| in, out, spread = 0, range = 0, elevation = 0 |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -251,7 +272,7 @@ SynthDef(\waveSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, pi/3, pi, 0);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
 
@@ -261,7 +282,7 @@ SynthDef(\waveSpace, {
 (
 SynthDef(\windSpace, {
 
-	| in, out |
+	| in, out, spread = 0, range = 0, elevation = pi |
 	var sig;
 
 	sig = In.ar(in);
@@ -269,7 +290,7 @@ SynthDef(\windSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
 	// Transform
-	sig = FoaZoom.ar(sig, 0, 0, 0);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
 
@@ -285,44 +306,44 @@ SynthDef(\windSpace, {
  ****************************/
 
 (
-var bubbleHall, gullHall, waveHall, windBand,
-    bubbleA, gullA, waveA, windA,
-    amp_b = 1, amp_g = 1, amp_w = 1,
-    dur_b = 1, dur_g = 1, dur_w = 1;
+var ampBubble = 1, ampGull = 1, ampWave = 1,
+    durBubble = 1, durGull = 1, durWave = 1;
 
 // Ambisonics Input + Transform
-bubbleA = Synth.new(\bubbleSpace, [
+~bubbleAmbi = Synth.new(\bubbleSpace, [
 	\in, ~beachBubbleAmbi,
 	\out, ~ambisonicsBus
 ]);
-gullA = Synth.new(\gullSpace, [
+~gullAmbi = Synth.new(\gullSpace, [
 	\in, ~beachGullAmbi,
-	\out, ~ambisonicsBus
+	\out, ~ambisonicsBus,
+	\range, (pi/2),
+	\spread, pi
 ]);
-waveA = Synth.new(\waveSpace, [
+~waveAmbi = Synth.new(\waveSpace, [
 	\in, ~beachWaveAmbi,
 	\out, ~ambisonicsBus
 ]);
 
-windA = Synth.new(\windSpace, [
+~windAmbi = Synth.new(\windSpace, [
 	\in, ~windAmbi,
 	\out, ~ambisonicsBus
 ]);
 
 //Effects
-bubbleHall = Synth.new(\complexReverbGenerator, [
+~bubbleHall = Synth.new(\complexReverbGenerator, [
 	\in, ~beachBubbleFx,
 	\out, ~beachBubbleAmbi
 ]);
-gullHall = Synth.new(\reverbGenerator, [
+~gullHall = Synth.new(\reverbGenerator, [
 	\in, ~beachGullFx,
 	\out, ~beachGullAmbi
 ]);
-waveHall = Synth.new(\reverbGenerator, [
+~waveHall = Synth.new(\reverbGenerator, [
 	\in, ~beachWaveFx,
 	\out, ~beachWaveAmbi
 ]);
-windBand = Synth.new(\bandpassGenerator, [
+~windBand = Synth.new(\bandpassGenerator, [
 	\in, ~windFx,
 	\out, ~windAmbi
 ]);
@@ -333,9 +354,9 @@ windBand = Synth.new(\bandpassGenerator, [
 	\instrument, \bubbleGenerator,
 	\out, ~beachBubbleFx,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\dur , Pgauss(Pfuncn({ dur_b }, inf), Pfuncn({ dur_b }, inf) - 0.2),
+	\dur , Pgauss(Pfuncn({ durBubble }, inf), Pfuncn({ durBubble }, inf) - 0.2),
 	\freq, Pkey(\sizefactor).linexp(0, 1, 100, 600),
-	\amp, Pfuncn({ amp_b }, inf),
+	\amp, Pfuncn({ ampBubble }, inf),
 	\decay, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.08),
 	\pitchcurvelen, Pkey(\sizefactor).linlin(0, 1, 0.05, 0.2),
 	\doneAction, 2
@@ -348,9 +369,9 @@ windBand = Synth.new(\bandpassGenerator, [
 	\instrument, \gullGenerator,
 	\out, ~beachGullFx,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\dur , Pfuncn({ dur_g }, inf),
+	\dur , Pfuncn({ durGull }, inf),
     \freq, Pkey(\sizefactor).linexp(0, 1, 400, 800),
-	\amp, Pfuncn({ amp_g }, inf),
+	\amp, Pfuncn({ ampGull }, inf),
     \attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.8),
     \decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.8),
 	\doneAction, 2
@@ -363,8 +384,8 @@ windBand = Synth.new(\bandpassGenerator, [
 	\instrument, \waveGenerator,
 	\out, ~beachWaveFx,
 	\sizefactor, Pwhite(0.0,1,inf),
-	\dur, Pgauss(Pfuncn({ dur_w }, inf), Pfuncn({ dur_w }, inf) -1),
-	\amp , Pfuncn({ amp_w }, inf),
+	\dur, Pgauss(Pfuncn({ durWave }, inf), Pfuncn({ durWave }, inf) -1),
+	\amp , Pfuncn({ ampWave }, inf),
 	\decay, Pkey(\sizefactor).linlin(0, 1, 2, 5),
 	\freqfactor, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.9),
 	\doneAction, 2
@@ -383,43 +404,10 @@ MIDIdef.cc(\ampBubble, {
 
 	| val, num, chan, src |
 
-	amp_b = val.linlin(0, 127, 0, 1);
-	amp_b.postln;
+	ampBubble = val.linlin(0, 127, 0, 1);
+	ampBubble.postln;
 
 }, 0);
-
-// Control the volume of the gulls
-MIDIdef.cc(\ampGull, {
-
-	| val, num, chan, src |
-
-	[val, num].postln;
-	amp_g = val.linlin(0, 127, 0, 1);
-	amp_g.postln;
-
-}, 1);
-
-// Control the volume of the waves
-MIDIdef.cc(\ampWave, {
-
-	| val, num, chan, src |
-
-	[val, num].postln;
-    amp_w = val.linlin(0, 127, 0, 1);
-	amp_w.postln;
-
-}, 2);
-
-// Control the volume of the wind
-MIDIdef.cc(\ampWind, {
-
-	| val, num, chan, src |
-	var amp_wind;
-
-	amp_wind = val.linlin(0, 127, 0, 1);
-	~wind.set(\amp, amp_wind);
-
-}, 3);
 
 // Control the duration of the bubbles
 MIDIdef.cc(\durBubble, {
@@ -427,19 +415,69 @@ MIDIdef.cc(\durBubble, {
 	| val, num, chan, src |
 
 	[val, num].postln;
-	dur_b = val.linlin(0, 127, 0.3, 0.5);
+	durBubble = val.linlin(0, 127, 0.3, 0.5);
 
-}, 16);
+}, 8);
+
+// Control the volume of the gulls
+MIDIdef.cc(\ampGull, {
+
+	| val, num, chan, src |
+
+	[val, num].postln;
+	ampGull = val.linlin(0, 127, 0, 1);
+	ampGull.postln;
+
+}, 1);
+
+/* MIDI CONTROLS */
 
 // Control the duration of the gulls
 MIDIdef.cc(\durGull, {
 
 	| val, num, chan, src |
+	var range;
 
 	[val, num].postln;
-	dur_g = val.linlin(0, 127, 0.5, 3);
+	durGull = val.linlin(0, 127, 0.5, 3);
+	~gullAmbi.set(\range, range);
 
-}, 17);
+}, 9);
+
+// Control the spread of the gulls
+MIDIdef.cc(\spreadGull, {
+
+	| val, num, chan, src |
+	var spread;
+
+	[val, num].postln;
+	spread = val.linlin(0, 127, -pi/2, pi/2);
+	~gullAmbi.set(\spread, spread);
+
+}, 2);
+
+// Control the range of the gulls
+MIDIdef.cc(\rangeGull, {
+
+	| val, num, chan, src |
+	var range;
+
+	[val, num].postln;
+	range = val.linlin(0, 127, 0, pi);
+	~gullAmbi.set(\range, range);
+
+}, 10);
+
+// Control the volume of the waves
+MIDIdef.cc(\ampWave, {
+
+	| val, num, chan, src |
+
+	[val, num].postln;
+    ampWave = val.linlin(0, 127, 0, 1);
+	ampWave.postln;
+
+}, 3);
 
 // Control the volume of the waves
 MIDIdef.cc(\durWave, {
@@ -447,22 +485,93 @@ MIDIdef.cc(\durWave, {
 	| val, num, chan, src |
 
 	[val, num].postln;
-	dur_w = val.linlin(0, 127, 2, 8);
+	durWave = val.linlin(0, 127, 2, 8);
 
-}, 18);
+}, 11);
+
+
+// Control the spread of the gulls
+MIDIdef.cc(\spreadWave, {
+
+	| val, num, chan, src |
+	var spread;
+
+	[val, num].postln;
+	spread = val.linlin(0, 127, -pi/2, pi/2);
+	~waveAmbi.set(\spread, spread);
+
+}, 4);
+
+// Control the range of the gulls
+MIDIdef.cc(\rangeWave, {
+
+	| val, num, chan, src |
+	var range;
+
+	[val, num].postln;
+	range = val.linlin(0, 127, 0, pi);
+	~waveAmbi.set(\range, range);
+
+}, 12);
+
+// Control the volume of the wind
+MIDIdef.cc(\ampWind, {
+
+	| val, num, chan, src |
+	var amp;
+
+	amp = val.linlin(0, 127, 0, 1);
+	~wind.set(\amp, amp);
+
+}, 7);
 
 // Control the filter of the wind
 MIDIdef.cc(\filterWind, {
 
 	| val, num, chan, src |
-	var filter_wind;
+	var filterWind;
 
 	[val, num].postln;
-    filter_wind = val.linexp(0, 127, 50, 10000);
-	~wind.set(\cutoff, filter_wind);
+    filterWind = val.linexp(0, 127, 50, 10000);
+	~wind.set(\cutoff, filterWind);
 
-}, 19);
+}, 15);
+
+MIDIdef.cc(\spreadWind, {
+
+	| val, num, chan, src |
+	var spread;
+
+	[val, num].postln;
+	spread = val.linlin(0, 127, -pi/2, pi/2);
+	~windAmbi.set(\spread, spread);
+
+}, 6);
+
+// Control the range of the gulls
+MIDIdef.cc(\rangeWind, {
+
+	| val, num, chan, src |
+	var range;
+
+	[val, num].postln;
+	range = val.linlin(0, 127, 0, pi);
+	~windAmbi.set(\range, range);
+
+}, 14);
+
+// Trigger real gull by playing MIDI note
+MIDIdef.noteOn(\triggerRealGull, {
+
+	| vel, nn, chan, src |
+
+	[vel, nn, chan, src].postln;
+	Synth.new(\bufPlaySynth, [\buf, ~realGull.bufnum]);
+
+}, 24);
 )
+
+/* -- */
 
 // Stop the beach
 (
