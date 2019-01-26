@@ -66,7 +66,7 @@ FoaXformDisplay.new;
 // Increase SuperCollider’s memory
 s.options.memSize = 1000000;
 // Increase the number of the server’s input and output busses
-s.options.numInputBusChannels = 0;
+s.options.numInputBusChannels = 2;
 s.options.numOutputBusChannels = 8;
 // Boot the SuperCollider server
 s.boot;

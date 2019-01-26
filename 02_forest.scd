@@ -32,6 +32,7 @@
 ~forestDuckFx = Bus.audio(s, 1);
 ~forestRealOwlFx = Bus.audio(s, 1);
 ~forestRealDuckFx = Bus.audio(s, 1);
+~forestRainFx = Bus.audio(s, 1);
 
 // Ambisonics Encode + Transform In
 ~forestPeckerAmbi = Bus.audio(s, 2);
@@ -41,6 +42,7 @@
 ~forestDuckAmbi = Bus.audio(s, 1);
 ~forestRealOwlAmbi = Bus.audio(s, 2);
 ~forestRealDuckAmbi = Bus.audio(s, 2);
+~forestRainAmbi = Bus.audio(s, 1);
 )
 
 
@@ -73,7 +75,7 @@ SynthDef(\woodpeckerGenerator, {
     sig = HPF.ar(sig, 500);
 	sig = LPF.ar(sig, 800);
 	sig = sig * env;
-	sig = sig * 5;
+	sig = sig;
 
     Out.ar(out, sig);
 }).add;
@@ -92,7 +94,7 @@ SynthDef(\owlGenerator, {
 	e = EnvGen.kr(Env.new([0, 0.2, 0], [0, 0.2, 0.4]));
 	5.collect({
 		|i|
-		sig = Formant.ar(Vibrato.ar(i * 80, 3, 0.015), XLine.ar(320, 100, 0, dur), 320);
+		sig = Formant.ar(Vibrato.ar(i * 80, 3, 0.015), XLine.ar(320, 100, 0, dur), 320, mul: 0.2);
 	});
 	sig = BPF.ar(sig, 320);
 	sig = sig * env;
@@ -107,7 +109,7 @@ SynthDef(\owlGenerator, {
 (
 SynthDef(\bufPlaySynth, {
 
-	| out, amp = 1, buf, doneAction = 2 |
+	| out = 0, amp = 1, buf, doneAction = 2 |
 	var sig;
 
 	sig= PlayBuf.ar(1, buf, doneAction: doneAction);
@@ -122,14 +124,14 @@ SynthDef(\bufPlaySynth, {
 (
 SynthDef(\rainGenerator, {
 
-	| out = 0, amp = 0.3, cutoff = 800 |
+	| out = 0, amp = 1, cutoff = 800 |
 	var gaus, sig;
 
 	sig = WhiteNoise.ar() * Crackle.ar() * LFDNoise0.ar();
 
 	sig = HPF.ar(sig, cutoff);
 
-	sig = sig * amp;
+	sig = sig * amp * 0.1;
 
 	Out.ar(out, sig);
 
@@ -158,7 +160,7 @@ SynthDef(\cricketSynth, {
 			+ BPF.ar(sig, 9000, 500.reciprocal, 42
 	);
 	sig = ((sig - OnePole.ar(sig, exp(-2pi * (4000 * SampleDur.ir)))) * 0.5)!2;
-	sig = sig * amp;
+	sig = sig * amp * 0.5;
 
 	Out.ar(out, sig);
 
@@ -170,14 +172,14 @@ SynthDef(\cricketSynth, {
 (
 SynthDef(\frogSynth, {
 
-	| out = 0, amp = 1, rateL = 0.2, rateR = 0.3, freq = 2, feedback = 50, mul = 0.3 , lpfreq = 2500 |
+	| out = 0, amp = 1, rateL = 0.2, rateR = 0.3, freq = 2, feedback = 50, mul = 0.3, lpfreq = 2500 |
 	var sig;
 
 	sig = FreeVerb.ar(
 			BLowPass.ar(
-				amp * SinOscFB.ar(
+				0.2 * amp * SinOscFB.ar(
 					LFDNoise1.kr([rateL, rateR], freq), feedback;
-				, mul),
+				, (amp * mul)),
 				lpfreq,
 				0.2
 			),
@@ -195,14 +197,14 @@ SynthDef(\frogSynth, {
 (
 SynthDef(\duckSynth, {
 
-	| out = 0, amp = 1, rateL = 1, rateR = 2, freq = 0.5, feedback = 90, mul = 1 , lpfreq = 100 |
+	| out = 0, amp = 1, rateL = 1, rateR = 2, freq = 0.5, feedback = 90, mul = 0.3, lpfreq = 100 |
 	var sig;
 
 	sig = FreeVerb.ar(
 			BLowPass.ar(
-				amp * SinOscFB.ar(
+				 SinOscFB.ar(
 					LFDNoise1.kr([rateL, rateR], freq), feedback;
-				, mul),
+				, (amp * mul)),
 				lpfreq,
 				0.2
 			),
@@ -281,7 +283,7 @@ SynthDef(\hallGenerator, {
 (
 SynthDef(\cricketSpace, {
 
-	| in, out |
+	| in, out, spread = 0, range = 0, elevation = 0 |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -289,7 +291,7 @@ SynthDef(\cricketSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, 0, 0, 0);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
 }).add;
@@ -403,6 +405,24 @@ SynthDef(\peckerSpace, {
 }).add;
 )
 
+(
+SynthDef(\rainSpace, {
+
+	| in, out, spread = 0, range = 0, elevation = 0 |
+	var sig;
+
+	sig = In.ar(in);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, spread, range, elevation);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
 
 /****************************
  *   ___  ___ ___ _ __   ___
@@ -445,6 +465,10 @@ var ampOwl = 1, ampPecker = 1, ampRain = 1,
 	\in, ~forestPeckerAmbi,
 	\out, ~ambisonicsBus
 ]);
+~rainAmbi = Synth.new(\rainSpace, [
+	\in, ~forestRainAmbi,
+	\out, ~ambisonicsBus
+]);
 
 // Effects
 ~cricketHall = Synth.new(\peckerReverbGenerator, [
@@ -454,6 +478,10 @@ var ampOwl = 1, ampPecker = 1, ampRain = 1,
 ~duckHall = Synth.new(\forestReverbGenerator, [
 	\in, ~forestDuckFx,
 	\out, ~forestDuckAmbi
+]);
+~realDuckHall = Synth.new(\forestReverbGenerator, [
+	\in, ~forestRealDuckFx,
+	\out, ~forestRealDuckAmbi
 ]);
 ~frogHall = Synth.new(\forestReverbGenerator, [
 	\in, ~forestFrogFx,
@@ -471,6 +499,10 @@ var ampOwl = 1, ampPecker = 1, ampRain = 1,
 	\in, ~forestRealOwlFx,
 	\out, ~forestRealOwlAmbi
 ]);
+~rainHall = Synth.new(\forestReverbGenerator, [
+	\in, ~forestRainFx,
+	\out, ~forestRainAmbi
+]);
 
 // Control the volume of the crickets
 MIDIdef.cc(\ampCricket, {
@@ -480,7 +512,7 @@ MIDIdef.cc(\ampCricket, {
 
 	[val, num].postln;
 	amp = val.linlin(0, 127, 0, 4);
-	~crickets.set(\amp, amp);
+	~cricket.set(\amp, amp);
 
 }, 16);
 
@@ -492,7 +524,7 @@ MIDIdef.cc(\durCricket, {
 
 	[val, num].postln;
 	dur = val.linlin(0, 127, 0.25, 1.25);
-	~crickets.set(\dur, dur);
+	~cricket.set(\dur, dur);
 
 }, 24);
 
@@ -503,48 +535,24 @@ MIDIdef.cc(\ampDuck, {
 	var amp;
 
 	[val, num].postln;
-	amp = val.linlin(0, 127, 0, 4);
-	~ducks.set(\amp, amp);
+	amp = val.linlin(0, 127, 0, 1);
+	~duck.set(\amp, amp);
 
 }, 17);
 
 /* MIDI CONTROLS */
 
 // Control the volume of the ducks
-MIDIdef.cc(\durDuck, {
+MIDIdef.cc(\, {
 
 	| val, num, chan, src |
 	var amp;
 
 	[val, num].postln;
-	amp = val.linlin(0, 127, 0, 4);
-	~ducks.set(\amp, amp);
+	amp = val.linlin(0, 127, 0, 1);
+	~frog.set(\amp, amp);
 
 }, 25);
-
-// Control the volume of the frogs
-MIDIdef.cc(\ampFrog, {
-
-	| val, num, chan, src |
-	var amp;
-
-	[val, num].postln;
-	amp = val.linlin(0, 127, 0, 4);
-	~frogs.set(\amp, amp);
-
-}, 18);
-
-// Control the volume of the frogs
-MIDIdef.cc(\ampFrog, {
-
-	| val, num, chan, src |
-	var dur;
-
-	[val, num].postln;
-	dur = val.linlin(0, 127, 0, 4);
-	~frogs.set(\dur, dur);
-
-}, 26);
 
 // Control the volume of the owls
 MIDIdef.cc(\ampOwl, {
@@ -643,9 +651,12 @@ MIDIdef.noteOn(\triggerRealOwl, {
 	| vel, nn, chan, src |
 
 	[vel, nn, chan, src].postln;
-	Synth.new(\bufPlaySynth, [\buf, ~realOwl.bufnum]);
+	Synth.new(\bufPlaySynth, [
+		\buf, ~realOwl.bufnum,
+		\out, ~forestRealOwlFx
+	]);
 
-}, 36);
+}, 37);
 
 // Triger real duck by playing MIDI note
 MIDIdef.noteOn(\triggerRealDuck, {
@@ -653,9 +664,12 @@ MIDIdef.noteOn(\triggerRealDuck, {
 	| vel, nn, chan, src |
 
 	[vel, nn, chan, src].postln;
-	Synth.new(\bufPlaySynth, [\buf, ~realDuck.bufnum]);
+	Synth.new(\bufPlaySynth, [
+		\buf, ~realDuck.bufnum,
+		\out, ~forestRealDuckFx
+	]);
 
-}, 37);
+}, 38);
 
 // Play the crickets
 ~cricket = Synth.new(\cricketSynth, [

@@ -28,11 +28,15 @@
 ~mountainEagleFx = Bus.audio(s, 1);
 ~mountainRiverFx = Bus.audio(s, 1);
 ~mountainSheepFx = Bus.audio(s, 1);
+~mountainRealEagleFx = Bus.audio(s, 2);
+~mountainRealSheepFx = Bus.audio(s, 1);
 
 // Ambisonics Encode + Transform In
 ~mountainRiverAmbi = Bus.audio(s, 1);
 ~mountainSheepAmbi = Bus.audio(s, 1);
 ~mountainEagleAmbi = Bus.audio(s, 2);
+~mountainRealEagleAmbi = Bus.audio(s, 2);
+~mountainRealSheepAmbi = Bus.audio(s, 2);
 )
 
 
@@ -47,8 +51,8 @@
 
 // Define buffers
 (
-~realDuck = Buffer.read(Server.default, "samples/".resolveRelative ++ "eagle.wav");
-~realOwl = Buffer.read(Server.default, "samples/".resolveRelative ++ "sheep.wav");
+~realEagle = Buffer.read(Server.default, "samples/".resolveRelative ++ "eagle.wav");
+~realSheep = Buffer.read(Server.default, "samples/".resolveRelative ++ "sheep.wav");
 )
 
 // Define eagle synth
@@ -68,7 +72,7 @@ SynthDef(\eagleGenerator, {
 	sig = BPF.ar(sig, 1000);
 
 	env = EnvGen.kr(Env.perc(dur/8, dur/12).delay(0.003), t_trig, doneAction: doneAction);
-	sig = sig * env * 0.5;
+	sig = sig * env * 0.3;
 	sig = sig * amp;
 
 	Out.ar(out, sig);
@@ -105,7 +109,7 @@ SynthDef(\sheepGenerator, {
 
 	sig = BPF.ar(sig, 800, 0.9);
 	sig = sig * env;
-	sig = amp * sig;
+	sig = 0.5 * amp * sig;
 
 	Out.ar(out, sig);
 
@@ -115,10 +119,24 @@ SynthDef(\sheepGenerator, {
 (
 SynthDef(\bufPlaySynth, {
 
-	| out, amp = 1, buf, doneAction = 2 |
+	| out = 0, amp = 1, buf, doneAction = 2 |
 	var sig;
 
 	sig= PlayBuf.ar(1, buf, doneAction: doneAction);
+	sig = sig * amp;
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\bufPlaySynthStereo, {
+
+	| out = 0, amp = 1, buf, doneAction = 2 |
+	var sig;
+
+	sig= PlayBuf.ar(2, buf, doneAction: doneAction);
 	sig = sig * amp;
 
 	Out.ar(out, sig);
@@ -199,7 +217,7 @@ SynthDef(\eagleSpace, {
 (
 SynthDef(\riverSpace, {
 
-	| in, out, range = 0, spread = pi |
+	| in, out, spread = 0, range = 0, elevation = 0 |
 	var sig;
 
 	sig = In.ar(in);
@@ -207,7 +225,7 @@ SynthDef(\riverSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
 	// Transform
-	sig = FoaZoom.ar(sig, 0, 0, 0);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
 
@@ -217,7 +235,7 @@ SynthDef(\riverSpace, {
 (
 SynthDef(\sheepSpace, {
 
-	| in, out |
+	| in, out, spread = 0, range = 0, elevation = 0 |
 	var sig;
 
 	sig = In.ar(in);
@@ -225,9 +243,43 @@ SynthDef(\sheepSpace, {
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
 	// Transform
-	sig = FoaZoom.ar(sig, 0, 0, 0);
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\realEagleSpace, {
+
+	| in, out, spread = 0, range = 0, elevation = pi |
+	var sig;
+
+	sig = In.ar(in);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, spread, range, elevation);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\realSheepSpace, {
+
+	| in, out, spread = 0, range = 0, elevation = 0 |
+	var sig;
+
+	sig = In.ar(in);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
+	// Transform
+	sig = FoaZoom.ar(sig, spread, range, elevation);
 
 }).add;
 )
@@ -258,6 +310,14 @@ var ampEagle = 0.1, ampSheep = 1,
 	\in, ~mountainSheepAmbi,
 	\out, ~ambisonicsBus
 ]);
+~realEagleAmbi = Synth.new(\realEagleSpace, [
+	\in, ~mountainRealEagleAmbi,
+	\out, ~ambisonicsBus
+]);
+~realSheepAmbi = Synth.new(\realSheepSpace, [
+	\in, ~mountainRealSheepAmbi,
+	\out, ~ambisonicsBus
+]);
 
 // Effects
 ~eagleEcho = Synth.new(\mountainEchoGenerator, [
@@ -273,6 +333,16 @@ var ampEagle = 0.1, ampSheep = 1,
 ~riverReverb = Synth.new(\mountainReverbGenerator, [
 	\in, ~mountainRiverFx,
 	\out, ~mountainRiverAmbi
+]);
+
+~realEagleEcho = Synth.new(\mountainEchoGenerator, [
+	\in, ~mountainRealEagleFx,
+	\out, ~mountainRealEagleAmbi
+]);
+
+~realSheepReverb = Synth.new(\mountainReverbGenerator, [
+	\in, ~mountainRealSheepFx,
+	\out, ~mountainRealSheepAmbi
 ]);
 
 /* MIDI CONTROLS */
@@ -356,9 +426,12 @@ MIDIdef.noteOn(\triggerRealEagle, {
 	| vel, nn, chan, src |
 
 	[vel, nn, chan, src].postln;
-	Synth.new(\bufPlaySynth, [\buf, ~realEagle.bufnum]);
+	Synth.new(\bufPlaySynthStereo, [
+		\buf, ~realEagle,
+		\out, ~mountainRealEagleFx
+	]);
 
-}, 48);
+}, 39);
 
 // Triger real duck by playing MIDI note
 MIDIdef.noteOn(\triggerRealSheep, {
@@ -366,9 +439,12 @@ MIDIdef.noteOn(\triggerRealSheep, {
 	| vel, nn, chan, src |
 
 	[vel, nn, chan, src].postln;
-	Synth.new(\bufPlaySynth, [\buf, ~realSheep.bufnum]);
+	Synth.new(\bufPlaySynth, [
+		\buf, ~realSheep,
+		\out, ~forestRealSheepFx
+	]);
 
-}, 49);
+}, 40);
 
 /* -- */
 

@@ -28,12 +28,14 @@
 ~beachBubbleFx = Bus.audio(s, 1);
 ~beachGullFx = Bus.audio(s, 1);
 ~beachWaveFx = Bus.audio(s, 1);
+~beachRealGullFx = Bus.audio(s, 1);
 ~windFx = Bus.audio(s, 1);
 
 // Ambisonics Encode + Transform In
 ~beachBubbleAmbi = Bus.audio(s, 2);
 ~beachGullAmbi = Bus.audio(s, 2);
 ~beachWaveAmbi = Bus.audio(s, 2);
+~beachRealGullAmbi = Bus.audio(s, 2);
 ~windAmbi = Bus.audio(s, 1);
 )
 
@@ -49,7 +51,7 @@
 
 // Define buffers
 (
-~realDuck = Buffer.read(Server.default, "samples/".resolveRelative ++ "seagull.wav");
+~realGull = Buffer.read(Server.default, "samples/".resolveRelative ++ "seagull.wav");
 )
 
 // Define bubble synth
@@ -87,7 +89,7 @@ SynthDef.new(\gullGenerator, {
 	sig = Formant.ar(XLine.kr(freq, 600, 0.5), XLine.kr(3000, 1400, 0.5), XLine.kr(freq * 2, 700, 0.5), mul: 0.6) + Formant.ar(XLine.kr(freq * 2, 150, 0.5), 805, 880, mul: 0.25) + Saw.ar(XLine.ar(freq / 2, 300, 0.5), mul: XLine.kr(0.2, 0, 0.2));
 
 	// Apply LFO and envelope
-	sig = 0.3 * env * sig;
+	sig = 0.6 * env * sig;
 
 	Out.ar(out, sig);
 
@@ -134,12 +136,12 @@ SynthDef.new(\windGenerator, {
 
 // Define buffer player synth
 (
-SynthDef(\bufPlaySynth, {
+SynthDef.new(\bufPlaySynth, {
 
-	| out, amp = 1, buf, doneAction = 2 |
+	| out = 0, amp = 1, buf, doneAction = 2 |
 	var sig;
 
-	sig= PlayBuf.ar(1, buf, doneAction: doneAction);
+	sig = PlayBuf.ar(2, buf, doneAction: doneAction);
 	sig = sig * amp;
 
 	Out.ar(out, sig);
@@ -297,6 +299,25 @@ SynthDef(\windSpace, {
 }).add;
 )
 
+(
+SynthDef(\realGullSpace, {
+
+	| in, out, spread = 0, range = 0, elevation = pi |
+	var sig;
+
+	sig = In.ar(in, 2);
+
+	// Encode
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
+	// Transform
+	sig = FoaZoom.ar(sig, spread, range, elevation);
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+
 /****************************
  *   ___  ___ ___ _ __   ___
  *  / __|/ __/ _ \ '_ \ / _ \
@@ -325,8 +346,13 @@ var ampBubble = 1, ampGull = 1, ampWave = 1,
 	\out, ~ambisonicsBus
 ]);
 
-~windAmbi = Synth.new(\windSpace, [
+~windA = Synth.new(\windSpace, [
 	\in, ~windAmbi,
+	\out, ~ambisonicsBus
+]);
+
+~realGullAmbi = Synth.new(\realGullSpace, [
+	\in, ~beachRealGullAmbi,
 	\out, ~ambisonicsBus
 ]);
 
@@ -346,6 +372,10 @@ var ampBubble = 1, ampGull = 1, ampWave = 1,
 ~windBand = Synth.new(\bandpassGenerator, [
 	\in, ~windFx,
 	\out, ~windAmbi
+]);
+~realGullHall = Synth.new(\reverbGenerator, [
+	\in, ~beachRealGullFx,
+	\out, ~beachRealGullAmbi
 ]);
 
 // Play the bubbles
@@ -520,6 +550,7 @@ MIDIdef.cc(\ampWind, {
 	| val, num, chan, src |
 	var amp;
 
+	[val, num].postln;
 	amp = val.linlin(0, 127, 0, 1);
 	~wind.set(\amp, amp);
 
@@ -566,9 +597,13 @@ MIDIdef.noteOn(\triggerRealGull, {
 	| vel, nn, chan, src |
 
 	[vel, nn, chan, src].postln;
-	Synth.new(\bufPlaySynth, [\buf, ~realGull.bufnum]);
 
-}, 24);
+	Synth.new(\bufPlaySynth, [
+		\buf, ~realGull.bufnum,
+		\out, ~beachRealGullFx
+	]);
+
+}, 36);
 )
 
 /* -- */
