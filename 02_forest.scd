@@ -25,20 +25,20 @@
 
 (
 // Effects In
-~forestPeckerFx = Bus.audio(s, 1);
+~forestRealPeckerFx = Bus.audio(s, 2);
 ~forestOwlFx = Bus.audio(s, 1);
 ~forestCricketFx = Bus.audio(s, 1);
-~forestFrogFx = Bus.audio(s, 1);
+~forestFrogFx = Bus.audio(s, 2);
 ~forestDuckFx = Bus.audio(s, 1);
 ~forestRealOwlFx = Bus.audio(s, 1);
 ~forestRealDuckFx = Bus.audio(s, 1);
 ~forestRainFx = Bus.audio(s, 1);
 
 // Ambisonics Encode + Transform In
-~forestPeckerAmbi = Bus.audio(s, 2);
+~forestRealPeckerAmbi = Bus.audio(s, 2);
 ~forestOwlAmbi = Bus.audio(s, 2);
 ~forestCricketAmbi = Bus.audio(s, 2);
-~forestFrogAmbi = Bus.audio(s, 1);
+~forestFrogAmbi = Bus.audio(s, 2);
 ~forestDuckAmbi = Bus.audio(s, 1);
 ~forestRealOwlAmbi = Bus.audio(s, 2);
 ~forestRealDuckAmbi = Bus.audio(s, 2);
@@ -59,26 +59,7 @@
 (
 ~realDuck = Buffer.read(Server.default, "samples/".resolveRelative ++ "duck.wav");
 ~realOwl = Buffer.read(Server.default, "samples/".resolveRelative ++ "owl.wav");
-)
-
-// Define woodpecker synth
-(
-SynthDef(\woodpeckerGenerator, {
-
-	| out = 0, t_trig = 0, dur = 0.25,  amp = 1, attack = 0.1, decay = 0.1, doneAction = 2 |
-    var env, sig;
-
-	env = amp * EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: doneAction);
-
-    sig = SinOsc.ar(Env([1000, 20, 20], [dur * 0.015, dur * 0.01], \lin).ar * [-0.1, 0, 0.1].midiratio);
-    sig = BPeakEQ.ar(sig, XLine.kr(1000, 100, 0.1), 1.0, 10);
-    sig = HPF.ar(sig, 500);
-	sig = LPF.ar(sig, 800);
-	sig = sig * env;
-	sig = sig;
-
-    Out.ar(out, sig);
-}).add;
+~realPecker = Buffer.read(Server.default, "samples/".resolveRelative ++ "woodpecker.wav");
 )
 
 // Define owl synth
@@ -113,6 +94,20 @@ SynthDef(\bufPlaySynth, {
 	var sig;
 
 	sig= PlayBuf.ar(1, buf, doneAction: doneAction);
+	sig = sig * amp;
+
+	Out.ar(out, sig);
+
+}).add;
+)
+
+(
+SynthDef(\bufPlaySynthStereo, {
+
+	| out = 0, amp = 1, buf, doneAction = 2 |
+	var sig;
+
+	sig= PlayBuf.ar(2, buf, doneAction: doneAction);
 	sig = sig * amp;
 
 	Out.ar(out, sig);
@@ -197,7 +192,7 @@ SynthDef(\frogSynth, {
 (
 SynthDef(\duckSynth, {
 
-	| out = 0, amp = 1, rateL = 1, rateR = 2, freq = 0.5, feedback = 90, mul = 0.3, lpfreq = 100 |
+	| out = 0, amp = 1, rateL = 1, rateR = 2, freq = 4, feedback = 90, mul = 0.3, lpfreq = 1500 |
 	var sig;
 
 	sig = FreeVerb.ar(
@@ -248,7 +243,7 @@ SynthDef(\peckerReverbGenerator, {
 	var effect, sig;
 
 	sig = In.ar(in);
-	effect = FreeVerb.ar(sig, 0.1, 0.01, 0.1);
+	effect = FreeVerb.ar(sig, 0.01, 0.01, 0.1);
 
 	Out.ar(out, effect);
 }).add;
@@ -283,7 +278,7 @@ SynthDef(\hallGenerator, {
 (
 SynthDef(\cricketSpace, {
 
-	| in, out, spread = 0, range = 0, elevation = 0 |
+	| in, out, spread = (1.25 * pi), range = (1), elevation = 0 |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -318,13 +313,13 @@ SynthDef(\duckSpace, {
 (
 SynthDef(\frogSpace, {
 
-	| in, out, spread = 0, range = 0, elevation = 0 |
+	| in, out, spread = 0, range = pi, elevation = 0 |
 	var sig;
 
 	sig = In.ar(in, 2);
 
 	// Encode
-	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
+	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
 	// Transform
 	sig = FoaZoom.ar(sig, spread, range, elevation);
 
@@ -372,7 +367,7 @@ SynthDef(\realDuckSpace, {
 (
 SynthDef(\realOwlSpace, {
 
-	| in, out, spread = 0, range = pi, elevation = pi |
+	| in, out, spread = pi, range = -pi, elevation = pi |
 	var sig;
 
 	sig = In.ar(in);
@@ -388,12 +383,12 @@ SynthDef(\realOwlSpace, {
 )
 
 (
-SynthDef(\peckerSpace, {
+SynthDef(\realPeckerSpace, {
 
 	| in, out, spread = 0, range = 0, elevation = pi |
 	var sig;
 
-	sig = In.ar(in);
+	sig = In.ar(in, 2);
 
 	// Encode
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newOmni);
@@ -447,7 +442,9 @@ var ampOwl = 1, ampPecker = 1, ampRain = 1,
 ]);
 ~frogAmbi = Synth.new(\frogSpace, [
 	\in, ~forestFrogAmbi,
-	\out, ~ambisonicsBus
+	\out, ~ambisonicsBus,
+	\range, -pi,
+	\spread, pi
 ]);
 ~owlAmbi = Synth.new(\owlSpace, [
 	\in, ~forestOwlAmbi,
@@ -461,8 +458,8 @@ var ampOwl = 1, ampPecker = 1, ampRain = 1,
 	\in, ~forestRealOwlAmbi,
 	\out, ~ambisonicsBus
 ]);
-~peckerAmbi = Synth.new(\peckerSpace, [
-	\in, ~forestPeckerAmbi,
+~realPeckerAmbi = Synth.new(\realPeckerSpace, [
+	\in, ~forestRealPeckerAmbi,
 	\out, ~ambisonicsBus
 ]);
 ~rainAmbi = Synth.new(\rainSpace, [
@@ -495,9 +492,9 @@ var ampOwl = 1, ampPecker = 1, ampRain = 1,
 	\in, ~forestRealOwlFx,
 	\out, ~forestRealOwlAmbi
 ]);
-~peckerHall = Synth.new(\forestReverbGenerator, [
-	\in, ~forestRealOwlFx,
-	\out, ~forestRealOwlAmbi
+~realPeckerHall = Synth.new(\forestReverbGenerator, [
+	\in, ~forestRealPeckerFx,
+	\out, ~forestRealPeckerAmbi
 ]);
 ~rainHall = Synth.new(\forestReverbGenerator, [
 	\in, ~forestRainFx,
@@ -529,6 +526,20 @@ MIDIdef.cc(\durCricket, {
 }, 24);
 
 // Control the volume of the ducks
+MIDIdef.cc(\ampFrog, {
+
+	| val, num, chan, src |
+	var amp;
+
+	[val, num].postln;
+	amp = val.linlin(0, 127, 0, 1);
+	~frog.set(\amp, amp);
+
+}, 17);
+
+/* MIDI CONTROLS */
+
+// Control the volume of the ducks
 MIDIdef.cc(\ampDuck, {
 
 	| val, num, chan, src |
@@ -537,20 +548,6 @@ MIDIdef.cc(\ampDuck, {
 	[val, num].postln;
 	amp = val.linlin(0, 127, 0, 1);
 	~duck.set(\amp, amp);
-
-}, 17);
-
-/* MIDI CONTROLS */
-
-// Control the volume of the ducks
-MIDIdef.cc(\, {
-
-	| val, num, chan, src |
-	var amp;
-
-	[val, num].postln;
-	amp = val.linlin(0, 127, 0, 1);
-	~frog.set(\amp, amp);
 
 }, 25);
 
@@ -671,6 +668,18 @@ MIDIdef.noteOn(\triggerRealDuck, {
 
 }, 38);
 
+MIDIdef.noteOn(\triggerRealPecker, {
+
+	| vel, nn, chan, src |
+
+	[vel, nn, chan, src].postln;
+	Synth.new(\bufPlaySynthStereo, [
+		\buf, ~realPecker.bufnum,
+		\out, ~forestRealPeckerFx
+	]);
+
+}, 39);
+
 // Play the crickets
 ~cricket = Synth.new(\cricketSynth, [
 	\out, ~forestCricketFx
@@ -683,7 +692,7 @@ MIDIdef.noteOn(\triggerRealDuck, {
 
 // Play the frog
 ~frog = Synth.new(\frogSynth, [
-	\out, ~forestFrogSpace
+	\out, ~forestFrogFx
 ]);
 
 // Play the river

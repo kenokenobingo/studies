@@ -431,7 +431,7 @@ MIDIdef.noteOn(\triggerRealEagle, {
 		\out, ~mountainRealEagleFx
 	]);
 
-}, 39);
+}, 40);
 
 // Triger real duck by playing MIDI note
 MIDIdef.noteOn(\triggerRealSheep, {
@@ -444,7 +444,7 @@ MIDIdef.noteOn(\triggerRealSheep, {
 		\out, ~forestRealSheepFx
 	]);
 
-}, 40);
+}, 41);
 
 /* -- */
 
