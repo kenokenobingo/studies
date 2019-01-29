@@ -28,14 +28,12 @@
 ~beachBubbleFx = Bus.audio(s, 1);
 ~beachGullFx = Bus.audio(s, 1);
 ~beachWaveFx = Bus.audio(s, 1);
-~beachRealGullFx = Bus.audio(s, 1);
 ~windFx = Bus.audio(s, 1);
 
 // Ambisonics Encode + Transform In
 ~beachBubbleAmbi = Bus.audio(s, 2);
 ~beachGullAmbi = Bus.audio(s, 2);
 ~beachWaveAmbi = Bus.audio(s, 2);
-~beachRealGullAmbi = Bus.audio(s, 2);
 ~windAmbi = Bus.audio(s, 1);
 )
 
@@ -101,15 +99,15 @@ SynthDef.new(\gullGenerator, {
 SynthDef.new(\waveGenerator, {
 
 	| out = 0, t_trig = 0, attack = 3, decay = 2, amp = 0.8, freqfactor = 0.75, doneAction = 2 |
-	var sig, env;
+	var sig;
 
-	env = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: doneAction);
+	~waveEnv = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: doneAction);
 
 	// Mix pink and brown noise for wave signal
 	sig = (PinkNoise.ar(1) * freqfactor) + (BrownNoise.ar(EnvGen.kr(Env.new([0.2, 1, 0], [attack, decay], [1, -1]))) * (1 - freqfactor));
 
 	// Apply envelope
-	sig = amp * sig * env;
+	sig = amp * sig * ~waveEnv;
 	sig = sig * 0.3;
 
 	Out.ar(out, sig);
@@ -229,7 +227,7 @@ SynthDef(\bandpassGenerator, {
 (
 SynthDef(\bubbleSpace, {
 
-	| in, out, spread = 0, range = 0, elevation = 0 |
+	| in, out, rotation = (pi/2), spread = (pi/2), range = 0, elevation = 0 |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -238,7 +236,8 @@ SynthDef(\bubbleSpace, {
 
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
-	sig = FoaZoom.ar(sig, spread, range, elevation);
+	sig = FoaZoom.ar(sig, spread, rotation, elevation);
+	sig = FoaRTT.ar(sig, rotation);
 
 	Out.ar(out, sig);
 
@@ -248,7 +247,7 @@ SynthDef(\bubbleSpace, {
 (
 SynthDef(\gullSpace, {
 
-	| in, out, spread = (pi/2), range = pi, elevation = pi |
+	| in, out, rotation = 0, spread = (pi/2), range = 0, elevation = pi |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -257,6 +256,7 @@ SynthDef(\gullSpace, {
 	sig = FoaEncode.ar(sig, FoaEncoderMatrix.newStereo);
 	// Transform
 	sig = FoaZoom.ar(sig, spread, range, elevation);
+	sig = FoaRTT.ar(sig, rotation, 0, 0);
 
 	Out.ar(out, sig);
 
@@ -266,7 +266,7 @@ SynthDef(\gullSpace, {
 (
 SynthDef(\waveSpace, {
 
-	| in, out, spread = 0, range = 0, elevation = 0 |
+	| in, out, spread = (0.375 * pi), range = 0, elevation = 0 |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -333,26 +333,22 @@ var ampBubble = 1, ampGull = 1, ampWave = 1,
 // Ambisonics Input + Transform
 ~bubbleAmbi = Synth.new(\bubbleSpace, [
 	\in, ~beachBubbleAmbi,
-	\out, ~ambisonicsBus
+	\out, ~ambisonicsBus,
+	\spread, (0.375 * pi),
+	\rotation, pi/2
 ]);
 ~gullAmbi = Synth.new(\gullSpace, [
 	\in, ~beachGullAmbi,
 	\out, ~ambisonicsBus,
-	\range, (pi/2),
-	\spread, pi
 ]);
 ~waveAmbi = Synth.new(\waveSpace, [
 	\in, ~beachWaveAmbi,
-	\out, ~ambisonicsBus
+	\out, ~ambisonicsBus,
+	\spread, (pi/2),
+	\range, 0
 ]);
-
 ~windA = Synth.new(\windSpace, [
 	\in, ~windAmbi,
-	\out, ~ambisonicsBus
-]);
-
-~realGullAmbi = Synth.new(\realGullSpace, [
-	\in, ~beachRealGullAmbi,
 	\out, ~ambisonicsBus
 ]);
 
@@ -372,10 +368,6 @@ var ampBubble = 1, ampGull = 1, ampWave = 1,
 ~windBand = Synth.new(\bandpassGenerator, [
 	\in, ~windFx,
 	\out, ~windAmbi
-]);
-~realGullHall = Synth.new(\reverbGenerator, [
-	\in, ~beachRealGullFx,
-	\out, ~beachRealGullAmbi
 ]);
 
 // Play the bubbles
@@ -487,14 +479,14 @@ MIDIdef.cc(\spreadGull, {
 }, 2);
 
 // Control the range of the gulls
-MIDIdef.cc(\rangeGull, {
+MIDIdef.cc(\rotationGull, {
 
 	| val, num, chan, src |
-	var range;
+	var rotation;
 
 	[val, num].postln;
-	range = val.linlin(0, 127, 0, pi);
-	~gullAmbi.set(\range, range);
+	rotation = val.linlin(0, 127, -2pi, 2pi);
+	~gullAmbi.set(\rotation, rotation);
 
 }, 10);
 
@@ -600,7 +592,7 @@ MIDIdef.noteOn(\triggerRealGull, {
 
 	Synth.new(\bufPlaySynth, [
 		\buf, ~realGull.bufnum,
-		\out, ~beachRealGullFx
+		\out, ~beachGullFx
 	]);
 
 }, 36);

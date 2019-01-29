@@ -121,3 +121,37 @@ Synth.new(\ambiOut);
 MIDIClient.init;
 MIDIIn.connectAll;
 )
+
+
+/************************************************************
+ *                              _ _
+ *   _ __ ___  ___ ___  _ __ __| (_)_ __   __ _
+ *  | '__/ _ \/ __/ _ \| '__/ _` | | '_ \ / _` |
+ *  | | |  __/ (_| (_) | | | (_| | | | | | (_| |
+ *  |_|  \___|\___\___/|_|  \__,_|_|_| |_|\__, |
+ *                                        |___/
+ *
+ ************************************************************/
+
+(
+SynthDef(\recorder, {
+
+	| bufnum |
+
+	DiskOut.ar(bufnum, In.ar(0, 8));
+
+}).add;
+)
+
+(
+~recordingBuffer = Buffer.alloc(Server.default, Server.default.sampleRate * 600, numChannels: 8);
+~recordingBuffer.write("~/studies/bounce.aiff".standardizePath, "aiff", "int16", 0, 0, true);
+r = Synth.tail(nil, \recorder, [\bufnum, ~recordingBuffer]);
+)
+
+// Stop recording
+(
+r.free;
+~recordingBuffer.close;
+~recordingBuffer.free
+)
