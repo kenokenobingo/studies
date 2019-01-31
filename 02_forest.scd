@@ -27,9 +27,10 @@
 // Effects In
 ~forestRealPeckerFx = Bus.audio(s, 2);
 ~forestOwlFx = Bus.audio(s, 1);
-~forestCricketFx = Bus.audio(s, 1);
+~forestCricketFx = Bus.audio(s, 2);
+~forestCricketFxB = Bus.audio(s, 2);
 ~forestFrogFx = Bus.audio(s, 2);
-~forestDuckFx = Bus.audio(s, 1);
+~forestDuckFx = Bus.audio(s, 2);
 ~forestRealOwlFx = Bus.audio(s, 1);
 ~forestRealDuckFx = Bus.audio(s, 1);
 ~forestRainFx = Bus.audio(s, 1);
@@ -38,8 +39,9 @@
 ~forestRealPeckerAmbi = Bus.audio(s, 2);
 ~forestOwlAmbi = Bus.audio(s, 2);
 ~forestCricketAmbi = Bus.audio(s, 2);
+~forestCricketAmbiB = Bus.audio(s, 2);
 ~forestFrogAmbi = Bus.audio(s, 2);
-~forestDuckAmbi = Bus.audio(s, 1);
+~forestDuckAmbi = Bus.audio(s, 2);
 ~forestRealOwlAmbi = Bus.audio(s, 2);
 ~forestRealDuckAmbi = Bus.audio(s, 2);
 ~forestRainAmbi = Bus.audio(s, 1);
@@ -122,11 +124,11 @@ SynthDef(\rainGenerator, {
 	| out = 0, amp = 1, cutoff = 800 |
 	var gaus, sig;
 
-	sig = WhiteNoise.ar() * Crackle.ar() * LFDNoise0.ar();
+	sig = 0.5 * WhiteNoise.ar() * Crackle.ar() * LFDNoise0.ar();
 
 	sig = HPF.ar(sig, cutoff);
 
-	sig = sig * amp * 0.1;
+	sig = sig * amp * 0.2;
 
 	Out.ar(out, sig);
 
@@ -137,24 +139,23 @@ SynthDef(\rainGenerator, {
 (
 SynthDef(\cricketSynth, {
 
-	| out, amp = 1 |
+	| out, amp = 1, phase = 0 |
 
 	var trig, seq, demand, sig;
 
-	trig = Impulse.kr(58.82);
+	trig = Impulse.kr(58.82 + phase);
 
-	seq = Dseq(Array.fill(41, {|i| if(i<7, {(i+2)/9},{0}) }),inf);
-	demand = Demand.kr(trig,0,seq);
+	seq = Dseq(Array.fill(41, { |i| if (i < 7, { (i + 2)/9 }, {0}) }), inf );
+	demand = Demand.kr(trig, 0, seq);
 
-	sig = EnvGen.ar(Env.new([0, 1, 0], [4/44100, 0]), trig) * demand;
-
+	sig = EnvGen.ar(Env.new([0, 1, 0], [4/48000, 0]), trig) * demand;
 
 	sig = OnePole.ar(sig, exp(-2pi * (1000 * SampleDur.ir)));
 	sig = (
 			BPF.ar(sig, 4500 + ((0..2)*50), 300.reciprocal, 100)).sum
 			+ BPF.ar(sig, 9000, 500.reciprocal, 42
 	);
-	sig = ((sig - OnePole.ar(sig, exp(-2pi * (4000 * SampleDur.ir)))) * 0.5)!2;
+	sig = ((sig - OnePole.ar(sig, exp(-2pi * (4000 * SampleDur.ir)))) * 0.5);
 	sig = sig * amp * 0.5;
 
 	Out.ar(out, sig);
@@ -278,7 +279,7 @@ SynthDef(\hallGenerator, {
 (
 SynthDef(\cricketSpace, {
 
-	| in, out, spread = (1.25 * pi), range = (1), elevation = 0 |
+	| in, out, spread = (1.25 * pi), range = (pi/2), elevation = 0 |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -436,6 +437,11 @@ var ampOwl = 1, ampPecker = 1, ampRain = 1,
 	\in, ~forestCricketAmbi,
 	\out, ~ambisonicsBus
 ]);
+~cricketAmbiB = Synth.new(\cricketSpace, [
+	\in, ~forestCricketAmbiB,
+	\out, ~ambisonicsBus,
+	\range, -pi/2
+]);
 ~duckAmbi = Synth.new(\duckSpace, [
 	\in, ~forestDuckAmbi,
 	\out, ~ambisonicsBus
@@ -468,9 +474,13 @@ var ampOwl = 1, ampPecker = 1, ampRain = 1,
 ]);
 
 // Effects
-~cricketHall = Synth.new(\peckerReverbGenerator, [
+~cricketHall = Synth.new(\forestReverbGenerator, [
 	\in, ~forestCricketFx,
 	\out, ~forestCricketAmbi
+]);
+~cricketHallB = Synth.new(\forestReverbGenerator, [
+	\in, ~forestCricketFxB,
+	\out, ~forestCricketAmbiB
 ]);
 ~duckHall = Synth.new(\forestReverbGenerator, [
 	\in, ~forestDuckFx,
@@ -510,6 +520,7 @@ MIDIdef.cc(\ampCricket, {
 	[val, num].postln;
 	amp = val.linlin(0, 127, 0, 4);
 	~cricket.set(\amp, amp);
+	~cricketB.set(\amo, amp);
 
 }, 16);
 
@@ -520,8 +531,9 @@ MIDIdef.cc(\durCricket, {
 	var dur;
 
 	[val, num].postln;
-	dur = val.linlin(0, 127, 0.25, 1.25);
-	~cricket.set(\dur, dur);
+	dur = val.linlin(0, 127, -10, 10);
+	~cricket.set(\phase, dur);
+	~cricketB.set(\phase, dur + pi);
 
 }, 24);
 
@@ -668,6 +680,7 @@ MIDIdef.noteOn(\triggerRealDuck, {
 
 }, 38);
 
+// Trigger real pecker by playing MIDI note
 MIDIdef.noteOn(\triggerRealPecker, {
 
 	| vel, nn, chan, src |
@@ -680,9 +693,16 @@ MIDIdef.noteOn(\triggerRealPecker, {
 
 }, 39);
 
+/* -- */
+
 // Play the crickets
 ~cricket = Synth.new(\cricketSynth, [
 	\out, ~forestCricketFx
+]);
+
+~cricketB = Synth.new(\cricketSynth, [
+	\out, ~forestCricketFxB,
+	\phase, pi
 ]);
 
 // Play the ducks
@@ -700,8 +720,6 @@ MIDIdef.noteOn(\triggerRealPecker, {
 	\out, ~forestRainFx
 ]);
 
-/* -- */
-
 // Play the owl
 ~owl= Pbind(*[
 
@@ -716,25 +734,12 @@ MIDIdef.noteOn(\triggerRealPecker, {
 	\doneAction, 2
 
 ]).play;
-
-// Play the woodpecker
-~pecker = Pbind(*[
-
-	\instrument, \woodpeckerGenerator,
-	\out, ~forestPeckerFx,
-	\sizefactor, Pwhite(0.0,1,inf),
-	\amp, Pfuncn({ ampPecker }, inf),
-	\dur, Pgauss(0.1, 0.5, inf),
-	\freq, Pkey(\sizefactor).linexp(0, 1, 50, 100),
-	\decay, Pkey(\sizefactor).linlin(0, 1, 0, 1),
-	\doneAction, 2,
-
-]).play;
 )
 
 // Stop the forest
 (
 ~cricket.free;
+~cricketB.free;
 ~duck.free;
 ~frog.free;
 ~owl.stop;

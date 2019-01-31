@@ -76,9 +76,7 @@ SynthDef(\bubbleGenerator, {
 SynthDef.new(\gullGenerator, {
 
 	| out = 0, t_trig = 0, freq=900, amp = 1, attack = 0.5, decay = 2, dur = 0.5, doneAction = 2 |
-	var env, env_effect, lfo, sig, temp, vibrato;
-
-	lfo = XLine.ar(3, 30);
+	var env, sig, vibrato;
 
 	vibrato = Vibrato.ar(100, 6, 0.8);
 	env = EnvGen.ar(Env.perc(Rand(attack - 0.2, attack), Rand(decay - 0.1, decay)), t_trig, doneAction: doneAction) * amp;
@@ -86,7 +84,7 @@ SynthDef.new(\gullGenerator, {
 	// Resonant filter
 	sig = Formant.ar(XLine.kr(freq, 600, 0.5), XLine.kr(3000, 1400, 0.5), XLine.kr(freq * 2, 700, 0.5), mul: 0.6) + Formant.ar(XLine.kr(freq * 2, 150, 0.5), 805, 880, mul: 0.25) + Saw.ar(XLine.ar(freq / 2, 300, 0.5), mul: XLine.kr(0.2, 0, 0.2));
 
-	// Apply LFO and envelope
+	// Apply envelope
 	sig = 0.6 * env * sig;
 
 	Out.ar(out, sig);
@@ -122,7 +120,7 @@ SynthDef.new(\windGenerator, {
 	| out = 0, amp = 0.5, cutoff = 400, doneAction = 2 |
 	var sig, env;
 
-	sig = BrownNoise.ar() * LFBrownNoise1.ar(0.5) * LFNoise0.ar(0.25);
+	sig = BrownNoise.ar() * LFBrownNoise1.ar(0.5);
 	// Bandpass Filter
 	sig = BRF.ar(sig, cutoff, 0.9);
 	sig = sig * amp;
@@ -394,8 +392,8 @@ var ampBubble = 1, ampGull = 1, ampWave = 1,
 	\dur , Pgauss(Pfuncn({ durBubble }, inf), Pfuncn({ durBubble }, inf) + 1),
     \freq, Pkey(\sizefactor).linexp(0, 1, 400, 1000),
 	\amp, Pfuncn({ ampGull }, inf),
-    \attack, Pkey(\sizefactor).linexp(0, 1, 0.2, 0.8),
-    \decay, Pkey(\sizefactor).linlin(0, 1, 0.3, 0.8),
+    \attack, Pkey(\sizefactor).linexp(0, 1, 0.1, 0.8),
+    \decay, Pkey(\sizefactor).linlin(0, 1, 0.1, 0.8),
 	\doneAction, 2
 
 ]).play;
@@ -420,6 +418,8 @@ var ampBubble = 1, ampGull = 1, ampWave = 1,
 	\out, ~windFx
 
 ]);
+
+/* MIDI CONTROLS */
 
 // Control the volume of the bubbles
 MIDIdef.cc(\ampBubble, {
@@ -451,8 +451,6 @@ MIDIdef.cc(\ampGull, {
 	ampGull.postln;
 
 }, 1);
-
-/* MIDI CONTROLS */
 
 // Control the duration of the gulls
 MIDIdef.cc(\durGull, {
