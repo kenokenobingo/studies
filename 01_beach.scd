@@ -96,8 +96,11 @@ SynthDef.new(\gullGenerator, {
 (
 SynthDef.new(\waveGenerator, {
 
-	| out = 0, t_trig = 0, attack = 3, decay = 2, amp = 0.8, freqfactor = 0.75, doneAction = 2 |
-	var sig;
+	| out = 0, t_trig = 0, dur = 5, amp = 0.8, freqfactor = 0.75, doneAction = 2 |
+	var sig, attack, decay;
+
+	attack = dur * (3/5);
+	decay = dur - attack;
 
 	~waveEnv = EnvGen.ar(Env.perc(attack, decay), t_trig, doneAction: doneAction);
 
@@ -506,6 +509,7 @@ MIDIdef.cc(\durWave, {
 
 	[val, num].postln;
 	durWave = val.linlin(0, 127, 2, 8);
+	~waveSpace.set(\range, durWave / (2*pi));
 
 }, 11);
 

@@ -156,7 +156,7 @@ SynthDef(\cricketSynth, {
 			+ BPF.ar(sig, 9000, 500.reciprocal, 42
 	);
 	sig = ((sig - OnePole.ar(sig, exp(-2pi * (4000 * SampleDur.ir)))) * 0.5);
-	sig = sig * amp * 0.5;
+	sig = sig * amp * 0.8;
 
 	Out.ar(out, sig);
 
@@ -168,7 +168,7 @@ SynthDef(\cricketSynth, {
 (
 SynthDef(\frogSynth, {
 
-	| out = 0, amp = 1, rateL = 0.2, rateR = 0.3, freq = 2, feedback = 50, mul = 0.3, lpfreq = 2500 |
+	| out = 0, amp = 1, rateL = 0.2, rateR = 0.3, freq = 2, feedback = 50, mul = 0.2, lpfreq = 2500 |
 	var sig;
 
 	sig = FreeVerb.ar(
@@ -193,7 +193,7 @@ SynthDef(\frogSynth, {
 (
 SynthDef(\duckSynth, {
 
-	| out = 0, amp = 1, rateL = 1, rateR = 2, freq = 4, feedback = 90, mul = 0.3, lpfreq = 1500 |
+	| out = 0, amp = 1, rateL = 1, rateR = 2, freq = 4, feedback = 90, mul = 0.05, lpfreq = 1500 |
 	var sig;
 
 	sig = FreeVerb.ar(
@@ -279,7 +279,7 @@ SynthDef(\hallGenerator, {
 (
 SynthDef(\cricketSpace, {
 
-	| in, out, spread = (1.25 * pi), range = (pi/2), elevation = 0 |
+	| in, out, spread = (0.375 * pi), range = (pi/2), elevation = 0 |
 	var sig;
 
 	sig = In.ar(in, 2);
@@ -435,26 +435,31 @@ var ampOwl = 1, ampPecker = 1, ampRain = 1,
 // Ambisonics Input + Transform
 ~cricketAmbi = Synth.new(\cricketSpace, [
 	\in, ~forestCricketAmbi,
-	\out, ~ambisonicsBus
+	\out, ~ambisonicsBus,
+	\spread, (0.3 * pi),
+	\range, (pi/2)
 ]);
 ~cricketAmbiB = Synth.new(\cricketSpace, [
 	\in, ~forestCricketAmbiB,
 	\out, ~ambisonicsBus,
-	\range, -pi/2
+	\spread, (0.3 * pi),
+	\range, (-pi/3)
 ]);
 ~duckAmbi = Synth.new(\duckSpace, [
 	\in, ~forestDuckAmbi,
-	\out, ~ambisonicsBus
+	\out, ~ambisonicsBus,
+	\range, pi,
+	\spread, (0.675 * pi)
 ]);
 ~frogAmbi = Synth.new(\frogSpace, [
 	\in, ~forestFrogAmbi,
 	\out, ~ambisonicsBus,
-	\range, -pi,
-	\spread, pi
 ]);
 ~owlAmbi = Synth.new(\owlSpace, [
 	\in, ~forestOwlAmbi,
-	\out, ~ambisonicsBus
+	\out, ~ambisonicsBus,
+	\range, pi,
+	\spread, pi
 ]);
 ~realDuckAmbi = Synth.new(\realDuckSpace, [
 	\in, ~forestRealDuckAmbi,
@@ -520,7 +525,7 @@ MIDIdef.cc(\ampCricket, {
 	[val, num].postln;
 	amp = val.linlin(0, 127, 0, 4);
 	~cricket.set(\amp, amp);
-	~cricketB.set(\amo, amp);
+	~cricketB.set(\amp, amp);
 
 }, 16);
 
@@ -572,7 +577,7 @@ MIDIdef.cc(\ampOwl, {
 	ampOwl = val.linlin(0, 127, 0, 1);
 	ampOwl.postln;
 
-}, 19);
+}, 18);
 
 // Control the duration of the owls
 MIDIdef.cc(\durOwl, {
@@ -583,7 +588,7 @@ MIDIdef.cc(\durOwl, {
 	durOwl = val.linlin(0, 127, 0, 1);
 	durOwl.postln;
 
-}, 27);
+}, 26);
 
 MIDIdef.cc(\spreadOwl, {
 
@@ -594,7 +599,7 @@ MIDIdef.cc(\spreadOwl, {
 	spread = val.linlin(0, 127, -pi/2, pi/2);
 	~owlAmbi.set(\spread, spread);
 
-}, 20);
+}, 19);
 
 // Control the duration of the owls
 MIDIdef.cc(\rangeOwl, {
@@ -606,7 +611,7 @@ MIDIdef.cc(\rangeOwl, {
 	range = val.linlin(0, 127, 0, pi);
 	~owlAmbi.set(\range, range);
 
-}, 28);
+}, 27);
 
 // Control the volume of the woodpecker
 MIDIdef.cc(\ampPecker, {
@@ -617,7 +622,7 @@ MIDIdef.cc(\ampPecker, {
 	ampPecker = val.linlin(0, 127, 0, 1);
 	ampPecker.postln;
 
-}, 21);
+}, 20);
 
 // Control the volume of the woodpecker
 MIDIdef.cc(\durPecker, {
@@ -628,7 +633,7 @@ MIDIdef.cc(\durPecker, {
 	durPecker = val.linlin(0, 127, 0, 1);
 	durPecker.postln;
 
-}, 29);
+}, 28);
 
 // Control the volume of the rain
 MIDIdef.cc(\ampRain, {
@@ -640,7 +645,7 @@ MIDIdef.cc(\ampRain, {
 	amp = val.linlin(0, 127, 0, 1);
 	~rain.set(\amp, amp);
 
-}, 23);
+}, 22);
 
 // Control the volume of the rain
 MIDIdef.cc(\ampWind, {
@@ -652,7 +657,7 @@ MIDIdef.cc(\ampWind, {
 	amp = val.linlin(0, 127, 0, 1);
 	~wind.set(\amp, amp);
 
-}, 31);
+}, 30);
 
 // Trigger real owl by playing MIDI note
 MIDIdef.noteOn(\triggerRealOwl, {
@@ -702,12 +707,14 @@ MIDIdef.noteOn(\triggerRealPecker, {
 
 ~cricketB = Synth.new(\cricketSynth, [
 	\out, ~forestCricketFxB,
-	\phase, pi
+	\phase, 10
 ]);
 
 // Play the ducks
 ~duck = Synth.new(\duckSynth, [
-	\out, ~forestDuckFx
+	\out, ~forestDuckFx,
+	\range, pi,
+	\spread, pi
 ]);
 
 // Play the frog

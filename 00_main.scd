@@ -49,7 +49,7 @@
 // Fetch and install dependencies
 (
 Quarks.install("https://github.com/ambisonictoolkit/atk-sc3.git");
-FoaXformDisplay.new;
+FoaXformDisplay.new(8);
 )
 
 
