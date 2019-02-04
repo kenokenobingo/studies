@@ -509,7 +509,8 @@ MIDIdef.cc(\durWave, {
 
 	[val, num].postln;
 	durWave = val.linlin(0, 127, 2, 8);
-	~waveSpace.set(\range, durWave / (2*pi));
+	//~waveSpace.set(\range, (durWave/2pi) * ~waveEnv);
+	//s~waveSpace.set(\spread, (0.5*pi/durWave) * ~waveEnv);
 
 }, 11);
 
